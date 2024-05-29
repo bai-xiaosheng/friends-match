@@ -9,6 +9,11 @@ COPY src ./src
 # Build a release artifact.
 RUN mvn package -DskipTests
 
-FROM openjdk:8
+# Final stage
+FROM openjdk:8-jre
+
+# Copy the jar from the builder stage to the final stage
+COPY --from=builder /app/target/friends-backend-0.0.1-SNAPSHOT.jar /app/
+
 # Run the web service on container startup.
-CMD ["java","-jar","/app/target/friends-backend-0.0.1-SNAPSHOT.jar","--spring.profiles.active=prod"]
+CMD ["java", "-jar", "/app/friends-backend-0.0.1-SNAPSHOT.jar", "--spring.profiles.active=prod"]
