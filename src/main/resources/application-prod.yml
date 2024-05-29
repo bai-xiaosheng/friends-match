@@ -1,0 +1,19 @@
+# 线上配置环境
+# 这个开源时一定不要将这个文件提交，或者不要填写真实配置
+
+spring:
+  datasource:
+    driver-class-name: com.mysql.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/project?serverTimezone=Asia/Shanghai
+    username: root
+    password: BDS
+  session:
+    timeout: 86400
+    store-type: redis
+#  mvc:
+#    pathmatch:
+#      matching-strategy: ANT_PATH_MATCHER
+
+server:
+  port: 8080
+
