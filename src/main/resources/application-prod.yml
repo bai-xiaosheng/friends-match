@@ -15,5 +15,5 @@ spring:
 #      matching-strategy: ANT_PATH_MATCHER
 
 server:
-  port: 8080
+  address: 0.0.0.0
 
