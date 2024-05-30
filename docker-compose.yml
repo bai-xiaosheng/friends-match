@@ -2,7 +2,7 @@ version: '3'
 services:
   app:
 #    build 会自动找到。目录下的dockfile进行构建
-    build: .
+    build: src/main/java
 #    image: 使用提前构建好的docker
 #    image: my-app-image
     ports:
