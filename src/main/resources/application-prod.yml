@@ -8,15 +8,13 @@ spring:
     url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/project?serverTimezone=Asia/Shanghai
     username: ${MYSQL_USER:root}
     password: ${MYSQL_PASSWORD:BDS}
-  profiles:
-    active: prod
   session:
     timeout: 86400
     store-type: redis
 
   redis:
     port: ${REDIS_PORT:6379}
-    host: ${REDIS_HOST:localhost}
+    host: ${REDIS_HOST:81.70.22.11}
     database: 1
 
 server:
@@ -25,7 +23,7 @@ server:
     context-path: /api
     session:
       cookie:
-        domain: localhost
+        domain: 81.70.22.11
 
 mybatis-plus:
   global-config:

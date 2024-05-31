@@ -12,7 +12,8 @@ spring:
 
   redis:
     port: ${REDIS_PORT:6379}
-    host: ${REDIS_HOST:localhost}
+#    host: ${REDIS_HOST:localhost}
+    host: ${REDIS_HOST:81.70.22.11}
     database: 1
 
 server:
@@ -21,7 +22,7 @@ server:
     context-path: /api
     session:
       cookie:
-        domain: localhost
+        domain: 81.70.22.11
 
 mybatis-plus:
   global-config:
