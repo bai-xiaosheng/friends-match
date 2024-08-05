@@ -2,7 +2,7 @@
 #FROM maven:3.9.6 as builder
 #FROM maven:3.9.6-eclipse-temurin-8-focal AS builder
 ## Copy local code to the container image.
-#WORKDIR /app
+WORKDIR /app
 #COPY pom.xml .
 #COPY src ./src
 

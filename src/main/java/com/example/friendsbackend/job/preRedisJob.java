@@ -5,7 +5,10 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.friendsbackend.mapper.UserMapper;
 import com.example.friendsbackend.modal.domain.User;
 import com.example.friendsbackend.service.UserService;
+import com.example.friendsbackend.utils.RedisUtil;
+import io.swagger.models.auth.In;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.CacheAsync;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -17,6 +20,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+
+import static com.example.friendsbackend.constant.Constant.*;
 
 @Component
 @Slf4j
@@ -30,6 +35,8 @@ public class preRedisJob {
     private UserService userService;
     @Resource
     private RedissonClient redissonClient;
+    @Resource
+    private RedisUtil redisUtil;
     private List<Long> userList = Arrays.asList(1L);
 
 
@@ -60,7 +67,7 @@ public class preRedisJob {
                     try {
                         redisTemplate.opsForValue().set(rediasKey,collect);
                     } catch (Exception e) {
-                        log.error("redias set key error",e);
+                        log.error("redis set key error",e);
                     }
                 }
             }
@@ -73,5 +80,88 @@ public class preRedisJob {
             }
         }
     }
+
+    /**
+     * 每天凌晨4点更新当前用户缓存
+     */
+    @Scheduled(cron = "0 0 4 * * *")
+    public void doCacheRecentUser(){
+        RLock lock = redissonClient.getLock("xiaobai:user:recentUser:lock");
+        try {
+            if (lock.tryLock(0,-1,TimeUnit.MICROSECONDS)){
+                // 查询最近登录的1000个用户，并将id保存到最近登录缓存中
+                QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+                queryWrapper.select("id","lastTime");
+                queryWrapper.orderByDesc("lastTime");
+                queryWrapper.last("limit 0,1000");
+                List<User> userList = userMapper.selectList(queryWrapper);
+                for (User user : userList){
+                    redisUtil.zsetSet(RECENTUSER,user.getId(),user.getLastTime().getTime());
+                }
+                // 查询svip和vip用户，将结果保存到最近登录表中
+                queryWrapper = new QueryWrapper<>();
+                queryWrapper.select("id","lastTime");
+                queryWrapper.eq("vipState",'2');
+                queryWrapper.eq("vipState",'1');
+                userList = userMapper.selectList(queryWrapper);
+                for (User user : userList){
+                    redisUtil.zsetSet(RECENTUSER,user.getId(),user.getLastTime().getTime());
+                }
+            }
+        } catch (InterruptedException e) {
+            log.error("doCacheRecentUser error" + e);
+        }finally {
+            if (lock.isHeldByCurrentThread()){
+                lock.unlock();
+            }
+        }
+    }
+
+    @Scheduled(cron = "0 3 3 * * *")
+    public void deleteOverdueUser(){
+        RLock lock = redissonClient.getLock("xiaobai:user:deleteOverdue:lock");
+        try {
+            if (lock.tryLock(0,-1,TimeUnit.MICROSECONDS)){
+                // 删除缓存中一个月以前的用户
+                redisUtil.zsetRemove(RECENTUSER,0L,System.currentTimeMillis() - RECENTTIME);
+            }
+        }catch (InterruptedException e){
+            log.error("deleteOverdueUser error" + e);
+        }finally {
+            if (lock.isHeldByCurrentThread()){
+                lock.unlock();
+            }
+        }
+    }
+// cron:秒 分 时 日 月 周 年。*代表每一个 ？表示不关心，-表示从几到几
+//    每小时执行一次
+//    @Scheduled(cron = "0 0 * * * *")
+//    public void doCacheRecentHourUser(){
+//        RLock lock = redissonClient.getLock("xiaobai:preRedis:doCache:lock");
+//        try {
+//            if (lock.tryLock(0,-1,TimeUnit.MICROSECONDS)){
+//                System.out.println("get lock" + Thread.currentThread().getId());
+//                QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+//                queryWrapper.select("id","tags","lastTime");
+//                queryWrapper.orderByDesc("lastTime");
+//                queryWrapper.last("limit 0,1000");
+//                String redisKey = "xiaobai:user:recentHour:{id,lastTime}:String";
+//                List<User> recentUserList = userMapper.selectList(queryWrapper);
+//                try {
+//                    redisTemplate.opsForValue().set(redisKey,recentUserList);
+//                }catch (Exception e){
+//                    log.error("redis set key error:",e);
+//                }
+//            }
+//        }catch (InterruptedException e){
+//            log.error("doCacheRecentHourUser error",e);
+//        }finally {
+//            if (lock.isHeldByCurrentThread()){
+//                System.out.println("unlock" + Thread.currentThread().getId());
+//                lock.unlock();
+//            }
+//        }
+//    }
+
 
 }

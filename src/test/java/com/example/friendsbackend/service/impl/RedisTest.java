@@ -49,33 +49,33 @@ public class RedisTest {
 //
 //    }
 
-    @Test
-    void Test(){
-        RLock lock = redissonClient.getLock("xiaobai:preRedis:docache:lock");
-        try {
-            if (lock.tryLock(0,-1, TimeUnit.MICROSECONDS)){
-                System.out.println("get lock"+Thread.currentThread().getId());
-                for (Long userid: mainUserList){
-                    QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-                    Page<User> userPage = userMapper.selectPage(new Page<>(1, 20), queryWrapper);
-                    String rediasKey = String.format("xiaobai:user:recommend:%s",userid);
-                    List<User> collect = userPage.getRecords().stream().map(
-                            user -> userService.getSafeUser(user)).collect(Collectors.toList());
-                    try {
-                        redisTemplate.opsForValue().set(rediasKey,collect);
-                    } catch (Exception e) {
-                        log.error("redias set key error",e);
-                    }
-                }
-            }
-        } catch (InterruptedException e) {
-            log.error("doCacheRecommendUser error",e);
-        }finally {
-            if (lock.isHeldByCurrentThread()){
-                System.out.println("unlock" + Thread.currentThread().getId());
-                lock.unlock();
-            }
-        }
+//    @Test
+//    void Test(){
+//        RLock lock = redissonClient.getLock("xiaobai:preRedis:docache:lock");
+//        try {
+//            if (lock.tryLock(0,-1, TimeUnit.MICROSECONDS)){
+//                System.out.println("get lock"+Thread.currentThread().getId());
+//                for (Long userid: mainUserList){
+//                    QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+//                    Page<User> userPage = userMapper.selectPage(new Page<>(1, 20), queryWrapper);
+//                    String rediasKey = String.format("xiaobai:user:recommend:%s",userid);
+//                    List<User> collect = userPage.getRecords().stream().map(
+//                            user -> userService.getSafeUser(user)).collect(Collectors.toList());
+//                    try {
+//                        redisTemplate.opsForValue().set(rediasKey,collect);
+//                    } catch (Exception e) {
+//                        log.error("redias set key error",e);
+//                    }
+//                }
+//            }
+//        } catch (InterruptedException e) {
+//            log.error("doCacheRecommendUser error",e);
+//        }finally {
+//            if (lock.isHeldByCurrentThread()){
+//                System.out.println("unlock" + Thread.currentThread().getId());
+//                lock.unlock();
+//            }
+//        }
 //        for (long userId: mainUserList){
 //            QueryWrapper<User> queryWrapper = new QueryWrapper<>();
 //            Page<User> userPage = userMapper.selectPage(new Page<>(1, 20), queryWrapper);
@@ -90,5 +90,33 @@ public class RedisTest {
 //                log.error("redias set key error",e);
 //            }
 //        }
+//    }
+
+    @Test
+    void Test(){
+        RLock lock = redissonClient.getLock("xiaobai:preRedis:doCache:lock");
+        try {
+            if (lock.tryLock(0,-1,TimeUnit.MICROSECONDS)){
+                System.out.println("get lock" + Thread.currentThread().getId());
+                QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+                queryWrapper.select("id","tags");
+                queryWrapper.orderByDesc("lastTime");
+                queryWrapper.last("limit 0,1000");
+                String redisKey = "xiaobai:user:recentHour:{id,lastTime}:String";
+                List<User> recentUserList = userMapper.selectList(queryWrapper);
+                try {
+                    redisTemplate.opsForValue().set(redisKey,recentUserList);
+                }catch (Exception e){
+                    log.error("redis set key error:",e);
+                }
+            }
+        }catch (InterruptedException e){
+            log.error("doCacheRecentHourUser error",e);
+        }finally {
+            if (lock.isHeldByCurrentThread()){
+                System.out.println("unlock" + Thread.currentThread().getId());
+                lock.unlock();
+            }
+        }
     }
 }

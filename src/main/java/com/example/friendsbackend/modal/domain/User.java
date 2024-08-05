@@ -20,12 +20,12 @@ public class User implements Serializable {
     private long id;
 
     /**
-     * 账户
+     * 用户账号
      */
     private String userAccount;
 
     /**
-     * 账户名称
+     * 用户名称
      */
     private String userName;
 
@@ -65,14 +65,18 @@ public class User implements Serializable {
     private Integer userStatus;
 
     /**
-     * 
+     * 用户创建时间
      */
     private Date createTime;
 
     /**
-     * 
+     * 用户更新时间
      */
     private Date updateTime;
+    /**
+     * 最后登录时间
+     */
+    private Date lastTime;
 
     /**
      * 是否删除（逻辑删除） 0-正常 1-删除
@@ -86,9 +90,9 @@ public class User implements Serializable {
     private Integer userRole;
 
     /**
-     * 星球id-用户校验
+     * 是否为会员 0-普通用户 1-vip 2-svip
      */
-    private String plantId;
+    private String vipState;
 
     /**
      * tags 用户标签

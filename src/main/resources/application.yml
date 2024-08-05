@@ -5,16 +5,18 @@ spring:
     username: ${MYSQL_USER:root}
     password: ${MYSQL_PASSWORD:BDS}
   profiles:
+#    配置开发环境
     active: dev
   session:
+#    会话超时时间，单位秒，决定session的有效时间
     timeout: 86400
+#    缓存在redis中
     store-type: redis
 
   redis:
     port: ${REDIS_PORT:6379}
-#    host: ${REDIS_HOST:localhost}
-    host: ${REDIS_HOST:81.70.22.11}
-    database: 1
+    host: ${REDIS_HOST:localhost}
+    database: 0
 
 server:
   port: 8080
@@ -22,18 +24,26 @@ server:
     context-path: /api
     session:
       cookie:
-        domain: 81.70.22.11
+#        设置cookie的域名。表示cookie只在这个域名下有效
+        domain: localhost
+
 
 mybatis-plus:
   global-config:
     db-config:
+#      逻辑删除字段名。这里指定了在数据库表中用于标识记录是否被逻辑删除的字段名称为flag
       logic-delete-field: flag
+#      逻辑删除值。这里指定了当数据库表中的flag字段值为1时，表示该记录被逻辑删除。
       logic-delete-value: 1
+#      未逻辑删除值。这里指定了当数据库表中的flag字段值为0时，表示该记录未被逻辑删除。
       logic-not-delete-value: 0
   configuration:
+#    是否开启驼峰命名自动转换。这里设置为false，表示不自动将数据库字段的下划线命名转换为Java字段的驼峰命名。
     map-underscore-to-camel-case: false
+#    sql语句打印
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-
+#    禁用缓存
+    local-cache-scope: statement
 
 knife4j:
   enable: true

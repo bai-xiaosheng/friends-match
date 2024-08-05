@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/user")
 //@CrossOrigin(origins = {"http://localhost:3000"})
-@CrossOrigin(origins = "http://81.70.22.11:3000", allowCredentials = "true")
+//@CrossOrigin(origins = "http://81.70.22.11:3000", allowCredentials = "true")
 @Slf4j
 //@Api(tags = "用户中心")
 public class UserController {
@@ -78,22 +78,11 @@ public class UserController {
         return ResultUtils.success(safeUser);
     }
     @GetMapping("/search")
-    public BaseResponse<List<User>> searchUser(String userName, HttpServletRequest request) {
-        //判断当前用户权限
-        if (!userService.isAdmin(request)){
-            throw new BusinessException(Code.PARAM_NULL_ERROR);
+    public BaseResponse<List<User>> searchUser(String userAccount, HttpServletRequest request) {
+        if (request == null){
+            return ResultUtils.error(Code.NO_LOGIN,"","当前用户未登录");
         }
-        //查询
-        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        if (StringUtils.isNotBlank(userName)){
-            queryWrapper.select("userName", userName);
-        }
-        List<User> users = userService.list(queryWrapper);
-        //脱敏
-        return ResultUtils.success(users.stream().map(user -> {
-                    return userService.getSafeUser(user);
-                }
-        ).collect(Collectors.toList()));
+        return ResultUtils.success(userService.searchUserByUserAccount(userAccount));
     }
 
     @GetMapping("/search/tags")
@@ -101,35 +90,14 @@ public class UserController {
         if (CollectionUtils.isEmpty(tagNameList)){
             throw new BusinessException(Code.PARAM_NULL_ERROR);
         }
-        List<User> userList = userService.userSearchByTag(tagNameList);
+        List<User> userList = userService.searchUserByTag(30, tagNameList);
         return ResultUtils.success(userList);
     }
     @GetMapping("/recommend")
     public BaseResponse<List<User>> recommendUser(long pageSize, long pageNum, HttpServletRequest request){
-        //todo
-        // 把业务代码放在业务层
         //加入缓存
         User loginUser = userService.getLoginUser(request);
-        //根据用户id查询缓存值
-        ValueOperations<String, Object> opsForValue = redisTemplate.opsForValue();
-        String rediasKey = String.format("xiaobai:user:recommend:%s",loginUser.getId());
-        List<User> userList = (List<User>) opsForValue.get(rediasKey);
-        //如果有缓存值，直接返回
-        if (userList != null){
-            return ResultUtils.success(userList);
-        }
-        //如果没有缓存值，从数据库读取
-        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        Page<User> userPage = userService.page(new Page<>(pageNum, pageSize), queryWrapper);
-        // 返回的用户信息要脱敏
-        userList = userPage.getRecords().stream().map(
-                user -> userService.getSafeUser(user)).collect(Collectors.toList());
-        //写入缓存
-        try {
-            opsForValue.set(rediasKey,userList,10, TimeUnit.MICROSECONDS);
-        } catch (Exception e) {
-            log.error("redias set key error",e);
-        }
+        List<User> userList = userService.recommendUser(loginUser,pageSize,pageNum);
         return ResultUtils.success(userList);
     }
 
@@ -139,12 +107,7 @@ public class UserController {
         if (user == null){
             throw new BusinessException(Code.PARAMS_ERROR);
         }
-        //判断当前用户权限
-        User loginUser = userService.getLoginUser(request);
-//        if (!userService.checkRole(loginUser) && loginUser.getId() != user.getId()){
-//            throw new BusinessException(Code.NO_AUTH);
-//        }
-        //修改数据
+        //修改数据，内部会判断用户是否为管理员，或者用户是否修改自身信息
         int result = userService.updateUser(user, request);
         return ResultUtils.success(result);
 

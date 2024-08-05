@@ -10,5 +10,5 @@ public class TeamDeleteRequest implements Serializable {
     /**
      * id
      */
-    private Long teamId;
+    private Long id;
 }

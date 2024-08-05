@@ -1,34 +1,42 @@
 package com.example.friendsbackend.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.example.friendsbackend.common.Code;
+import com.example.friendsbackend.common.PageRequest;
 import com.example.friendsbackend.exception.BusinessException;
 import com.example.friendsbackend.mapper.UserMapper;
 import com.example.friendsbackend.modal.domain.User;
 import com.example.friendsbackend.service.UserService;
 import com.example.friendsbackend.utils.AlgorithmUtils;
+import com.example.friendsbackend.utils.BloomFilterUtil;
+import com.example.friendsbackend.utils.RedisUtil;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.math3.util.Pair;
+import org.redisson.api.RBloomFilter;
+import org.redisson.api.RedissonClient;
+import org.redisson.client.codec.StringCodec;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
 import org.springframework.util.DigestUtils;
 
+import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static com.example.friendsbackend.constant.Constant.ADMIN_ROLE;
-import static com.example.friendsbackend.constant.Constant.USER_LOGIN_STATE;
+import static com.example.friendsbackend.constant.Constant.*;
 
 /**
 * @author BDS
@@ -42,6 +50,32 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     @Resource
     private UserMapper userMapper;
     public static final String SALT = "YUPI";
+    @Resource
+    private RedisTemplate<String,Object> redisTemplate;
+    @Resource
+    private RedissonClient redissonClient;
+    @Resource
+    private RedisUtil redisUtil;
+    @Resource
+    private BloomFilterUtil bloomFilterUtil;
+    private  RBloomFilter<Object> bloomFilter;
+    // 预测插入数量
+    static long expectedInsertions = 50000L;
+    // 误判率
+    static double falseProbability = 0.01;
+
+    @PostConstruct  //项目启动时执行该方法，或者理解为在spring容器初始化时执行该方法
+    public void init(){
+        // 项目启动时初始化 bloomFilter
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.select("userAccount");
+        List<User> userList = this.list(queryWrapper);
+        bloomFilter = bloomFilterUtil.create("userAccountWhiteList", expectedInsertions, falseProbability);
+        for (User user : userList){
+            bloomFilter.add(user.getUserAccount());
+        }
+    }
+
 
     @Override
     public long userRegister(String userAccount, String userPassword, String checkPassword, String plantId) {
@@ -87,6 +121,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         if (!result) {
             throw new BusinessException(Code.SAVE_ERROR,"请重试");
         }
+        bloomFilter.add(user.getUserAccount());
         return user.getId();
     }
 
@@ -128,8 +163,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             log.info("user login failed, userAccount cannot math userPassword");
             throw new BusinessException(Code.PARAM_NULL_ERROR,"数据库中不包含该账户");
         }
+//        更新用户最后登录时间
+        Date date = new Date();
+        user.setLastTime(date);
+        userMapper.updateById(user);
+//        RedisUtil redisUtil = new RedisUtil();
+//        将用户id存储到最近登录缓存中
+        redisUtil.zsetSet(RECENTUSER,user.getId(),user.getLastTime().getTime());
         //3.用户信息脱敏
         User safeUser = getSafeUser(user);
+
         //4.记录用户登录状态
         request.getSession().setAttribute(USER_LOGIN_STATE, safeUser);
         //返回脱敏后的用户信息
@@ -145,7 +188,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         safeUser.setUserUrl(originUser.getUserUrl());
         safeUser.setProfile(originUser.getProfile());
         safeUser.setGender(originUser.getGender());
-        safeUser.setPlantId(originUser.getPlantId());
+        safeUser.setVipState(originUser.getVipState());
         safeUser.setTags(originUser.getTags());
         safeUser.setPhone(originUser.getPhone());
         safeUser.setEmail(originUser.getEmail());
@@ -162,57 +205,118 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
 
-    /**
-     * @param tagsNameList 标签列表
-     * @return 具有搜索标签的用户
-     */
     @Override
-    public List<User> userSearchByTag(List<String> tagsNameList){
-        if (CollectionUtils.isEmpty(tagsNameList)){
-            throw new BusinessException(Code.PARAMS_ERROR);
-        }
-//        //1.sql查询   like "%java%"
+    public List<User> searchUserByTag(long num, List<String> tagsNameList){
+
+        System.out.println("数据开始查询时间戳："+System.currentTimeMillis());
+//        // sql查询包含输入标签的用户
+//        if (CollectionUtils.isEmpty(tagsNameList)){
+//            throw new BusinessException(Code.PARAMS_ERROR);
+//        }
+//////        //1.sql查询   like "%java%"
+//        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+//        queryWrapper.select("id","tags");
+//        for (String tagName:tagsNameList){
+//            queryWrapper = queryWrapper.like("tags",tagName);
+//        }
+//        queryWrapper.orderByDesc("createTime");
+//        queryWrapper.last("limit 1,100");
+//        List<User> userList = userMapper.selectList(queryWrapper);
+
+        // 从缓存中读取最近登录用户的id,2629800000表示一个月对应的毫秒数
+        Set<Object> userIdSet = redisUtil.zsetAllQuery(RECENTUSER, System.currentTimeMillis() - RECENTTIME, System.currentTimeMillis());
+
+        // 1. 查询到所有用户 id 和标签
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        for (String tagName:tagsNameList){
-            queryWrapper = queryWrapper.like("tags",tagName);
+        queryWrapper.in("id",userIdSet);
+        queryWrapper.select("id","tags");
+//        queryWrapper.isNotNull("tags");
+//        queryWrapper.orderByDesc("lastTime");
+//        queryWrapper.last("limit 0,1000");
+        List<User> userList = this.list(queryWrapper);
+//
+        System.out.println("查询1000条用户后时间戳："+System.currentTimeMillis());
+
+        // 2. 获取用户标签，使用 gson 将 json 格式数据转换为字符串列表
+        Gson gson = new Gson();
+        // 3. 根据标签查询相似度高的用户
+        // 存储用户信息与其对应的相似度得分
+        List<Pair<User,Integer>> list = new ArrayList<>();
+        for (int i = 0; i < userList.size(); i++) {
+            User user = userList.get(i);
+            String userTags = user.getTags();
+            // 这里考虑删除，上面queryWrapper已经判断isNotNull
+            if (StringUtils.isBlank(userTags)){
+                continue;
+            }
+            List<String> userTagList = gson.fromJson(userTags, new TypeToken<List<String>>() {
+            }.getType());
+            int minDistance = AlgorithmUtils.minDistance(tagsNameList, userTagList);
+            list.add(new Pair<>(user,minDistance));
         }
-        List<User> userList = userMapper.selectList(queryWrapper);
+        // 对 list 中的数据进行排序
+        List<Pair<User, Integer>> topUserPairList = list.stream()
+                .sorted(Comparator.comparingInt(Pair::getValue))
+                .limit(num)
+                .collect(Collectors.toList());
+        // 读取当前 list 中用户对应的 id
+        List<Long> topUserIdList = topUserPairList.stream().map(pair -> pair.getKey().getId()).collect(Collectors.toList());
+        // 读取 id 列表对应用户信息并且将用户信息脱敏
+        QueryWrapper<User> userQueryWrapper = new QueryWrapper<>();
+        userQueryWrapper.in("id",topUserIdList);
+        Map<Long, List<User>> userIdListMap = this.list(userQueryWrapper)
+                .stream()
+                .map(this::getSafeUser)
+                .collect(Collectors.groupingBy(User::getId));
+        //
+        List<User> resultList = new ArrayList<>();
+        for (Long userId : topUserIdList) {
+            resultList.add(userIdListMap.get(userId).get(0));
+        }
+        System.out.println("相似度排序后时间戳："+System.currentTimeMillis());
+        return resultList;
+
+
         //用户信息脱敏
-        return  userList.stream().map(this::getSafeUser).collect(Collectors.toList());
-        //内存查询
-        //1.先将所有数据放到内存中
+//        return  userList.stream().map(this::getSafeUser).collect(Collectors.toList());
+//
+//        //内存查询
+//        //1.先将所有数据放到内存中
 //        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
 //        List<User> userList = userMapper.selectList(queryWrapper);
 //        Gson gson = new Gson();
-        //2.判断
-//        Set<String> tagNameSet = new HashSet<>(tagsNameList);
-//        List<User> filterUser = new ArrayList<>();
-//        for (User user:userList){
-//            String tags = user.getTags();
-//            if (StringUtils.isBlank(tags)){
-//                continue;
-//            }
-//            Set<String> tempTagName = gson.fromJson(tags,new TypeToken<Set<String>>(){}.getType());
-//            boolean containAllTags = true;
-//            for (String tagName : tagNameSet){
-//                if (!tempTagName.contains(tagName)){
-//                    containAllTags = false;
-//                    break;
-//                }
-//            }
-//            if (containAllTags){
-//                filterUser.add(user);
-//            }
-//        }
-//        return filterUser;
-
+//        //2.判断
+////        Set<String> tagNameSet = new HashSet<>(tagsNameList);
+////        List<User> filterUser = new ArrayList<>();
+////        for (User user:userList){
+////            String tags = user.getTags();
+////            if (StringUtils.isBlank(tags)){
+////                continue;
+////            }
+////            Set<String> tempTagName = gson.fromJson(tags,new TypeToken<Set<String>>(){}.getType());
+////            boolean containAllTags = true;
+////            for (String tagName : tagNameSet){
+////                if (!tempTagName.contains(tagName)){
+////                    containAllTags = false;
+////                    break;
+////                }
+////            }
+////            if (containAllTags){
+////                filterUser.add(user);
+////            }
+////        }
+////        return filterUser;
+//
 //        return  userList.stream().filter(user -> {
 //            String tags = user.getTags();
-//            if (StringUtils.isBlank(tags)) {
-//                return false;
-//            }
+//
+////            if (StringUtils.isBlank(tags)) {
+////                return false;
+////            }
 //            Set<String> tempTagName = gson.fromJson(tags, new TypeToken<Set<String>>() {
 //            }.getType());
+//            tempTagName = Optional.ofNullable(tempTagName).orElse(new HashSet<>());
+//            System.out.println(tempTagName);
 //            for (String tagName : tagsNameList) {
 //                if (!tempTagName.contains(tagName)) {
 //                    return false;
@@ -224,27 +328,88 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
     @Override
+    public List<User> recommendUser(User loginUser, long pageSize, long pageNum) {
+        //根据用户id查询缓存值
+        ValueOperations<String, Object> opsForValue = redisTemplate.opsForValue();
+        String rediasKey = String.format("xiaobai:user:recommend:%s",loginUser.getId());
+//        String rediasKey = String.format("xiaobai:user:%s",loginUser.getId());
+        List<User> userList = (List<User>) opsForValue.get(rediasKey);
+//        //如果有缓存值，直接返回
+        if (userList != null){
+            return userList;
+        }
+
+        //如果没有缓存值，从数据库读取
+        System.out.println("从最近登录用户表中读取：");
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        // 从缓存中读取最近登录用户的id,2629800000表示一个月对应的毫秒数
+        Set<Object> userIdSet = redisUtil.zsetAllQuery(RECENTUSER, System.currentTimeMillis() - 2629800000L, System.currentTimeMillis());
+        queryWrapper.in("id",userIdSet);
+//        queryWrapper.select("id","tags");
+
+        Page<User> userPage = this.page(new Page<>(pageNum, pageSize), queryWrapper);
+        // 返回的用户信息要脱敏
+        userList = userPage.getRecords().stream().map(
+                this::getSafeUser).collect(Collectors.toList());
+        //写入缓存
+        try {
+            opsForValue.set(rediasKey,userList,10, TimeUnit.MICROSECONDS);
+        } catch (Exception e) {
+            log.error("redias set key error",e);
+        }
+        return userList;
+    }
+
+    @Override
+    @Cacheable(cacheNames = "user", key = "#userAccount", unless = "#result==null") //缓存存在，则使用缓存；不存在，则执行方法，并将结果塞入缓存
+    public List<User> searchUserByUserAccount(String userAccount) {
+        if (!bloomFilter.contains(userAccount)){
+            System.out.println("所要查询的数据既不在缓存中，也不在数据库中，为非法key");
+            /*
+              设置unless = "#result==null"并在非法访问的时候返回null的目的是不将该次查询返回的null使用
+              RedissonConfig-->RedisCacheManager-->RedisCacheConfiguration-->entryTtl设置的过期时间存入缓存。
+
+              因为那段时间太长了，在那段时间内可能该非法key又添加到bloomFilter，比如之前不存在userAccount为1234567的用户，
+              在那段时间可能刚好userAccount为1234567的用户完成注册，使该key成为合法key。
+
+              所以我们需要在缓存中添加一个可容忍的短期过期的null或者是其它自定义的值,使得短时间内直接读取缓存中的该值。
+
+              因为Spring Cache本身无法缓存null，因此选择设置为一个其中所有值均为null的JSON，
+             */
+            String illegalJson = "[\"com.company.springboot.entity.User\",{\"id\":null,\"userName\":\"null\",]";
+            // RedissonClient的getBucket(key)方法获取一个RBucket对象实例，通过这个实例可以设置value或设置value和有效期
+            redissonClient.getBucket("userAccount::" + userAccount).set(illegalJson,new Random().nextInt(200) + 300, TimeUnit.SECONDS);
+//            redissonClient.getBucket("userAccount::" + userAccount, new StringCodec()).set(illegalJson,new Random().nextInt(200) + 300, TimeUnit.SECONDS);
+            return null;
+        }
+        System.out.println("从数据库中查询用户");
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("userAccount",userAccount);
+        List<User> userList = this.list(queryWrapper);
+        return userList.stream().map(this::getSafeUser).collect(Collectors.toList());
+    }
+
+    @Override
     public int updateUser(User user, HttpServletRequest request) {
         User loginUser = getLoginUser(request);
         if (user == null){
             throw new BusinessException(Code.PARAM_NULL_ERROR);
         }
-        //
+        //获取当前用户id，int默认值为0，数据库中不存在id为0的用户
         Long id = user.getId();
-        if (id == null){
+        if (id == null || id == 0){
             throw new BusinessException(Code.PARAMS_ERROR,"未提供id");
         }
         //判断当前用户权限
         if (!isAdmin(loginUser) && loginUser.getId() != user.getId()){
             throw new BusinessException(Code.NO_AUTH);
         }
-
         //修改信息
         return userMapper.updateById(user);
     }
 
     @Override
-    public User getLoginUser(HttpServletRequest request) {
+    public User getLoginUser(HttpServletRequest request)  {
         if (request == null){
             throw new BusinessException(Code.NO_LOGIN);
         }
@@ -280,51 +445,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     @Override
     public List<User> matchUsers(long num, User loginUser) {
-        // 1. 查询到所有用户 id 和标签
-        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        queryWrapper.select("id","tags");
-        queryWrapper.isNotNull("tags");
-        List<User> userList = this.list(queryWrapper);
-        // 2. 获取用户标签，使用 gson 将 json 格式数据转换为字符串列表
-        long loginUserId = loginUser.getId();
         String tags = loginUser.getTags();
         Gson gson = new Gson();
         List<String> loginUserTagList = gson.fromJson(tags, new TypeToken<List<String>>() {
         }.getType());
-        // 3. 根据标签查询相似度高的用户
-        // 存储用户信息与其对应的相似度得分
-        List<Pair<User,Integer>> list = new ArrayList<>();
-        for (int i = 0; i < userList.size(); i++) {
-            User user = userList.get(i);
-            String userTags = user.getTags();
-            if (StringUtils.isBlank(userTags) || user.getId() == loginUserId){
-                continue;
-            }
-            List<String> userTagList = gson.fromJson(userTags, new TypeToken<List<String>>() {
-            }.getType());
-            int minDistance = AlgorithmUtils.minDistance(loginUserTagList, userTagList);
-            list.add(new Pair<>(user,minDistance));
-        }
-        // 对 list 中的数据进行排序
-        List<Pair<User, Integer>> topUserPairList = list.stream()
-                .sorted(Comparator.comparingInt(Pair::getValue))
-                .limit(num)
-                .collect(Collectors.toList());
-        // 读取当前 list 中用户对应的 id
-        List<Long> topUserIdList = topUserPairList.stream().map(pair -> pair.getKey().getId()).collect(Collectors.toList());
-        // 读取 id 列表对应用户信息并且将用户信息脱敏
-        QueryWrapper<User> userQueryWrapper = new QueryWrapper<>();
-        userQueryWrapper.in("id",topUserIdList);
-        Map<Long, List<User>> userIdListMap = this.list(userQueryWrapper)
-                .stream()
-                .map(this::getSafeUser)
-                .collect(Collectors.groupingBy(User::getId));
-        //
-        List<User> resultList = new ArrayList<>();
-        for (Long userId : topUserIdList) {
-            resultList.add(userIdListMap.get(userId).get(0));
-        }
-        return resultList;
+        return this.searchUserByTag(num,loginUserTagList);
     }
 }
 

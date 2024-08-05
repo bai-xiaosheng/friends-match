@@ -5,9 +5,9 @@
 spring:
   datasource:
     driver-class-name: com.mysql.jdbc.Driver
-    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/project?serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://${MYSQL_HOST:81.70.22.11}:${MYSQL_PORT:3306}/project?serverTimezone=Asia/Shanghai
     username: ${MYSQL_USER:root}
-    password: ${MYSQL_PASSWORD:BDS}
+    password: ${MYSQL_PASSWORD:study}
   session:
     timeout: 86400
     store-type: redis
@@ -15,7 +15,7 @@ spring:
   redis:
     port: ${REDIS_PORT:6379}
     host: ${REDIS_HOST:81.70.22.11}
-    database: 1
+    database: 0
 
 server:
   port: 8080
@@ -24,6 +24,9 @@ server:
     session:
       cookie:
         domain: 81.70.22.11
+        http-only: true
+        secure: false
+
 
 mybatis-plus:
   global-config:

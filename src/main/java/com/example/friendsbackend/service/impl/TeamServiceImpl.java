@@ -402,7 +402,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
             throw new BusinessException(Code.PARAMS_ERROR,"参数为空");
         }
         //2. 判断队伍是否存在
-        Long teamId = teamDeleteRequest.getTeamId();
+        Long teamId = teamDeleteRequest.getId();
         if (teamId == null || teamId < 1){
             throw new BusinessException(Code.PARAMS_ERROR,"队伍 id 错误");
         }
@@ -420,9 +420,9 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         queryWrapper.eq("teamId",teamId);
         boolean removeUserTeam = userTeamService.remove(queryWrapper);
         //5. 删除队伍表中的信息
-        if (true){
-            throw new BusinessException(Code.SYSTEM_ERROR);
-        }
+//        if (true){
+//            throw new BusinessException(Code.SYSTEM_ERROR);
+//        }
         boolean removeTeam = this.removeById(teamId);
         return removeUserTeam && removeTeam;
     }

@@ -17,17 +17,18 @@
             <result property="updateTime" column="updateTime" jdbcType="TIMESTAMP"/>
             <result property="isDelete" column="isDelete" jdbcType="INTEGER"/>
             <result property="userRole" column="userRole" jdbcType="INTEGER"/>
-            <result property="plantId" column="plantId" jdbcType="VARCHAR"/>
+            <result property="vipState" column="vipState" jdbcType="VARCHAR"/>
             <result property="tags" column="tags" jdbcType="VARCHAR"/>
             <result property="phone" column="phone" jdbcType="VARCHAR"/>
             <result property="email" column="email" jdbcType="VARCHAR"/>
+            <result property="lastTime" column="lastTime" jdbcType="TIMESTAMP"/>
     </resultMap>
 
     <sql id="Base_Column_List">
         id,userAccount,userName,
         userUrl,gender,profile，phone,email,userPassword,
         userStatus,createTime,updateTime,
-        isDelete,userRole,plantId,
-        tags
+        isDelete,userRole,vipState,
+        tags,lastTime
     </sql>
 </mapper>

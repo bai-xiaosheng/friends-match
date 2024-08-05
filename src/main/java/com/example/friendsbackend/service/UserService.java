@@ -52,11 +52,33 @@ public interface UserService extends IService<User> {
      * @param tagsNameList 标签列表
      * @return 用户列表
      */
-    List<User> userSearchByTag(List<String> tagsNameList);
+    List<User> searchUserByTag(long num, List<String> tagsNameList);
 
     /**
+     * 根据当前用户返回其推荐用户
+     * @param loginUser 登录用户
+     * @param pageSize
+     * @param pageNum
+     * @return 用户列表
+     */
+    List<User>  recommendUser(User loginUser, long pageSize, long pageNum);
+
+    /**
+     * 根据用户账号查询用户
+     *
+     * @param userAccount  用户账号
+     * @return 用户列表
+     */
+    List<User> searchUserByUserAccount(String userAccount);
+    /**
+     * @param num 数量
+     * @param loginUser 当前登录用户
+     * @return 与登录用户相匹配的用户
+     */
+    List<User> matchUsers(long num, User loginUser);
+    /**
      * 更新用户信息
-     * @param user 用户信息
+     * @param user 更新的用户信息
      * @param request 登录信息
      * @return 是否更新成功
      */
@@ -77,10 +99,10 @@ public interface UserService extends IService<User> {
     boolean isAdmin(HttpServletRequest request);
 
     /**
+     * 检查当前登录用户是否为管理员
      * @param user 登录用户
      * @return 管理员-true
      */
     boolean isAdmin(User user);
 
-    List<User> matchUsers(long num, User loginUser);
 }

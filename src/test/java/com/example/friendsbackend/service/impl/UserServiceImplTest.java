@@ -12,7 +12,6 @@ import javax.annotation.Resource;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest
 class UserServiceImplTest {
     @Resource
@@ -37,7 +36,7 @@ class UserServiceImplTest {
     @Test
     void tsetUserSearchByTag() {
         List<String> tagNameList = Arrays.asList("java");
-        List<User> userList = userService.userSearchByTag(tagNameList);
+        List<User> userList = userService.searchUserByTag(30,tagNameList);
         Assertions.assertNotNull(userList);
 
     }
