@@ -79,9 +79,7 @@ public class UserController {
     }
     @GetMapping("/search")
     public BaseResponse<List<User>> searchUser(String userAccount, HttpServletRequest request) {
-        if (request == null){
-            return ResultUtils.error(Code.NO_LOGIN,"","当前用户未登录");
-        }
+        userService.getLoginUser(request);
         return ResultUtils.success(userService.searchUserByUserAccount(userAccount));
     }
 

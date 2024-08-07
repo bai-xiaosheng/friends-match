@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.friendsbackend.mapper.ChatMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.friendsbackend.modal.domain.Chat">
+            <id property="id" column="id" jdbcType="BIGINT"/>
+            <result property="sendUserId" column="sendUserId" jdbcType="BIGINT"/>
+            <result property="recUserId" column="recUserId" jdbcType="BIGINT"/>
+            <result property="content" column="content" jdbcType="VARCHAR"/>
+            <result property="sendUserName" column="sendUserName" jdbcType="VARCHAR"/>
+            <result property="chatType" column="chatType" jdbcType="TINYINT"/>
+            <result property="isRead" column="isRead" jdbcType="TINYINT"/>
+            <result property="sendTime" column="sendTime" jdbcType="TIMESTAMP"/>
+            <result property="deleteTime" column="deleteTime" jdbcType="TIMESTAMP"/>
+            <result property="teamId" column="teamId" jdbcType="BIGINT"/>
+            <result property="isDelete" column="isDelete" jdbcType="TINYINT"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        id,sendUserId,recUserId,
+        content,chatType,isRead,
+        sendTime,deleteTime,teamId,
+        isDelete,sendUserName
+    </sql>
+</mapper>

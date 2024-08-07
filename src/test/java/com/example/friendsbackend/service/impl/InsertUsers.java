@@ -47,7 +47,7 @@ public class InsertUsers {
                 user.setPhone("969900860@qq.com");
                 user.setEmail("969900860@qq.com");
 
-                user.setPlantId("");
+                user.setVipState("0");
                 user.setTags("[\"男\",\"java\",\"python\"]");
                 userList.add(user);
                 if (j % batchSize == 0){

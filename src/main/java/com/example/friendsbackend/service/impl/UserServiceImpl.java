@@ -189,6 +189,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         safeUser.setProfile(originUser.getProfile());
         safeUser.setGender(originUser.getGender());
         safeUser.setVipState(originUser.getVipState());
+        safeUser.setLastTime(originUser.getLastTime());
         safeUser.setTags(originUser.getTags());
         safeUser.setPhone(originUser.getPhone());
         safeUser.setEmail(originUser.getEmail());
@@ -361,7 +362,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
     @Override
-    @Cacheable(cacheNames = "user", key = "#userAccount", unless = "#result==null") //缓存存在，则使用缓存；不存在，则执行方法，并将结果塞入缓存
+    @Cacheable(cacheNames = "userAccount", key = "#userAccount", unless = "#result==null") //缓存存在，则使用缓存；不存在，则执行方法，并将结果塞入缓存
     public List<User> searchUserByUserAccount(String userAccount) {
         if (!bloomFilter.contains(userAccount)){
             System.out.println("所要查询的数据既不在缓存中，也不在数据库中，为非法key");

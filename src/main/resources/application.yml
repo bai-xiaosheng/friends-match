@@ -45,6 +45,31 @@ mybatis-plus:
 #    禁用缓存
     local-cache-scope: statement
 
+  # 设置日志打印
+  # logging.level.root: 日志级别
+  # logging.pattern.console: 日志输出格式
+  # %m为消息
+  # %n为换行
+  # %p 级别
+  # %t 为线程名 %16t 则线程名占16位
+  # %clr 是添加颜色
+  # 例如 %clr（%m） 则日志消息带有颜色
+# logging.file.name: 记录日志到文件
+# logging.file.logback.rollingpolicy.max-file-size: 日志文件大小
+# logging.file.logback.rollingpolicy.file-name-pattern: 超过最大后，重新创建日志文件名称
+
+#logging:
+#  level:
+#    root: error
+#  pattern:
+#    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+#  file:
+#    name: "D:\\project\\friends\\friends-backend\\springbootSlf4j\\server.log"
+#  logback:
+#    rollingpolicy:
+#      max-file-size: "10MB"
+#      file-name-pattern: "D:\\project\\friends\\friends-backend\\springbootSlf4j\\server.%d{yyyy-MM-dd}.%i.log"
+
 knife4j:
   enable: true
 # 开启生产环境屏蔽
@@ -75,3 +100,8 @@ knife4j:
 #        .apis(RequestHandlerSelectors.basePackage("com.github.xiaoymin.knife4j.controller"))
 #        .paths(PathSelectors.any())
 #        .build();
+
+
+
+
+
