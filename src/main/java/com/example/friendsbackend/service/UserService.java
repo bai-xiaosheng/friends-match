@@ -14,15 +14,16 @@ import java.util.List;
 
 public interface UserService extends IService<User> {
 
+
     /**
-     * 创建用户
+     * 只需要用户账号跟数据库不重复即可创建
+     *
      * @param userAccount 用户账号
-     * @param userPassword 用户密码
-     * @param checkPassword 校验密码（二次密码）
-     * @param plantId 星球 id，是否允许用户创建的一个条件
+     * @param userPassword  用户密码
+     * @param checkPassword  校验密码（二次密码）
      * @return 用户 id
      */
-    long userRegister(String userAccount, String userPassword, String checkPassword, String plantId);
+    long userRegister(String userAccount, String userPassword, String checkPassword);
 
     /**
      * 用户登录
@@ -56,12 +57,12 @@ public interface UserService extends IService<User> {
 
     /**
      * 根据当前用户返回其推荐用户
-     * @param loginUser 登录用户
+     * @param request 登录信息
      * @param pageSize
      * @param pageNum
      * @return 用户列表
      */
-    List<User>  recommendUser(User loginUser, long pageSize, long pageNum);
+    List<User>  recommendUser(HttpServletRequest request, long pageSize, long pageNum);
 
     /**
      * 根据用户账号查询用户

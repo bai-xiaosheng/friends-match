@@ -58,17 +58,21 @@ mybatis-plus:
 # logging.file.logback.rollingpolicy.max-file-size: 日志文件大小
 # logging.file.logback.rollingpolicy.file-name-pattern: 超过最大后，重新创建日志文件名称
 
-#logging:
-#  level:
-#    root: error
-#  pattern:
-#    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
-#  file:
-#    name: "D:\\project\\friends\\friends-backend\\springbootSlf4j\\server.log"
-#  logback:
-#    rollingpolicy:
-#      max-file-size: "10MB"
-#      file-name-pattern: "D:\\project\\friends\\friends-backend\\springbootSlf4j\\server.%d{yyyy-MM-dd}.%i.log"
+
+logging:
+  pattern:
+#    指定了日志文件的存储路径
+    file: "D:\\project\\friends\\friends-backend\\springbootSlf4j\\server.log"
+  logback:
+#    日志文件滚动策略
+    rollingpolicy:
+      max-file-size: "10MB"
+      file-name-pattern: "D:\\project\\friends\\friends-backend\\springbootSlf4j\\server.%d{yyyy-MM-dd}.%i.log"
+  level:
+#    将 web 包的日志级别设置为 debug
+    web: debug
+#    将根日志级别设置为 error
+    root: error
 
 knife4j:
   enable: true

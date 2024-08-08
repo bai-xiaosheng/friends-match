@@ -67,8 +67,9 @@ public class UserController {
         String userAccount = userRegister.getUserAccount();
         String userPassword = userRegister.getUserPassword();
         String checkPassword = userRegister.getCheckPassword();
-        String plantId = userRegister.getPlantId();
-        long id = userService.userRegister(userAccount, userPassword, checkPassword,plantId);
+//        String plantId = userRegister.getPlantId();
+//        long id = userService.userRegister(userAccount, userPassword, checkPassword,plantId);
+        long id = userService.userRegister(userAccount, userPassword, checkPassword);
         return ResultUtils.success(id);
     }
     @GetMapping("/current")
@@ -94,8 +95,9 @@ public class UserController {
     @GetMapping("/recommend")
     public BaseResponse<List<User>> recommendUser(long pageSize, long pageNum, HttpServletRequest request){
         //加入缓存
-        User loginUser = userService.getLoginUser(request);
-        List<User> userList = userService.recommendUser(loginUser,pageSize,pageNum);
+//        User loginUser = userService.getLoginUser(request);
+
+        List<User> userList = userService.recommendUser(request,pageSize,pageNum);
         return ResultUtils.success(userList);
     }
 

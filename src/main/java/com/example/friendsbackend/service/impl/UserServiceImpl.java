@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.example.friendsbackend.common.Code;
-import com.example.friendsbackend.common.PageRequest;
 import com.example.friendsbackend.exception.BusinessException;
 import com.example.friendsbackend.mapper.UserMapper;
 import com.example.friendsbackend.modal.domain.User;
@@ -14,13 +13,11 @@ import com.example.friendsbackend.utils.BloomFilterUtil;
 import com.example.friendsbackend.utils.RedisUtil;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.math3.util.Pair;
 import org.redisson.api.RBloomFilter;
 import org.redisson.api.RedissonClient;
-import org.redisson.client.codec.StringCodec;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
@@ -78,7 +75,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
 
     @Override
-    public long userRegister(String userAccount, String userPassword, String checkPassword, String plantId) {
+    public long userRegister(String userAccount, String userPassword, String checkPassword) {
         if (StringUtils.isAnyBlank(userAccount,userPassword,checkPassword))
             return 0;
         if (userAccount.length() < 4) {
@@ -96,13 +93,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         //两次密码校验
         if (!userPassword.equals(checkPassword)) {
             throw new BusinessException(Code.PARAMS_ERROR,"两次密码不一致");
-        }
-        //星球id不能重复
-        QueryWrapper<User> queryWrapperId = new QueryWrapper<>();
-        queryWrapperId.eq("plantId", plantId);
-        long countId = userMapper.selectCount(queryWrapperId);
-        if (countId > 0) {
-            throw new BusinessException(Code.PARAMS_ERROR,"当前星球账户已注册");
         }
         //账号不能重复
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
@@ -329,10 +319,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
     @Override
-    public List<User> recommendUser(User loginUser, long pageSize, long pageNum) {
+    public List<User> recommendUser(HttpServletRequest request, long pageSize, long pageNum) {
+        Long id = -1L;
+        if (request != null){
+            User loginUser = (User) request.getSession().getAttribute(USER_LOGIN_STATE);
+            if (loginUser != null){
+                id = loginUser.getId();
+            }
+        }
         //根据用户id查询缓存值
         ValueOperations<String, Object> opsForValue = redisTemplate.opsForValue();
-        String rediasKey = String.format("xiaobai:user:recommend:%s",loginUser.getId());
+        String rediasKey = String.format("xiaobai:user:recommend:%s",id);
 //        String rediasKey = String.format("xiaobai:user:%s",loginUser.getId());
         List<User> userList = (List<User>) opsForValue.get(rediasKey);
 //        //如果有缓存值，直接返回
