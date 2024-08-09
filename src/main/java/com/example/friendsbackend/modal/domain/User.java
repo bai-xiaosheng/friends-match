@@ -53,6 +53,10 @@ public class User implements Serializable {
      * 电话
      */
     private String phone;
+    /**
+     * 添加的好友
+     */
+    private String userIds;
 
     /**
      * 邮箱

@@ -28,6 +28,10 @@ public class Team implements Serializable {
      * 描述
      */
     private String description;
+    /**
+     * 队伍头像
+     */
+    private String teamUrl;
 
     /**
      * 最大人数

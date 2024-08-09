@@ -5,8 +5,11 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.example.friendsbackend.modal.domain.User;
 import com.example.friendsbackend.modal.request.*;
 import com.example.friendsbackend.modal.vo.TeamUserVo;
+import com.example.friendsbackend.modal.vo.TeamVo;
 
+import javax.servlet.http.HttpServletRequest;
 import java.util.List;
+import java.util.Set;
 
 /**
 * @author BDS
@@ -37,7 +40,7 @@ public interface TeamService extends IService<Team> {
      * @param isAdmin 是否为管理员
      * @return 符合查询条件的队伍
      */
-    List<TeamUserVo> listTeam(TeamQueryRequest teamQueryRequest, Boolean isAdmin);
+    List<TeamVo> listTeam(TeamQueryRequest teamQueryRequest, Boolean isAdmin);
 
     /**
      * 用户加入队伍
@@ -49,11 +52,11 @@ public interface TeamService extends IService<Team> {
 
     /**
      * 用户退出队伍
-     * @param quitTeamRequest 退出信息
+     * @param teamId 退出队伍的id
      * @param loginUser 用户登录信息
      * @return 退出是否成功
      */
-    Boolean quitTeam(QuitTeamRequest quitTeamRequest, User loginUser);
+    Boolean quitTeam(Long teamId, User loginUser);
 
     /**
      * 删除队伍
@@ -62,4 +65,66 @@ public interface TeamService extends IService<Team> {
      * @return 队伍是否删除
      */
     Boolean deleteTeam(TeamDeleteRequest teamDeleteRequest, User loginUser);
+
+    /**
+     * 根据队伍id查询队伍
+     *
+     * @param teamId 队伍id
+     * @param request http请求
+     * @return 查询到的队伍信息
+     */
+    TeamVo getUsersByTeamId(Long teamId, HttpServletRequest request);
+
+    /**
+     * 解散队伍
+     *
+     * @param teamId 队伍id
+     * @param request 登录信息
+     * @return 是否成功
+     */
+    boolean dissolutionTeam(Long teamId, HttpServletRequest request);
+
+    /**
+     * 根据用户加入的队伍id获取队伍信息
+     *
+     * @param teamId 队伍id
+     * @param request 登录信息
+     * @return 队伍信息
+     */
+    TeamUserVo getTeamListByTeamIds(Set<Long> teamId, HttpServletRequest request);
+
+    /**
+     * 根据内容查询队伍
+     *
+     * @param teamQueryRequest
+     * @param request
+     * @return
+     */
+    TeamUserVo teamQuery(TeamQueryRequest teamQueryRequest, HttpServletRequest request);
+
+    /**
+     * 去除过期和重复的队伍，结果返回值为set
+     *
+     * @param teamList 队伍列表
+     * @return set
+     */
+    TeamUserVo teamSet(List<Team> teamList);
+
+    /**
+     * 剔除队员
+     *
+     * @param kickOutUserRequest  队伍id，队员id
+     * @param loginUser 当前登录用户
+     * @return 是否成功剔除
+     */
+    Boolean kickOutTeamByUserId(KickOutUserRequest kickOutUserRequest, User loginUser);
+
+    /**
+     * 转移队伍队长
+     *
+     * @param transferTeamRequest 转移队长信息
+     * @param loginUser 当前登录用户
+     * @return 是否转移成功 true - 转移成功
+     */
+    Boolean transferTeam(TransferTeamRequest transferTeamRequest, User loginUser);
 }
