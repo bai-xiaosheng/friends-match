@@ -56,7 +56,7 @@ public class User implements Serializable {
     /**
      * 添加的好友
      */
-    private String userIds;
+    private String friendsIds;
 
     /**
      * 邮箱

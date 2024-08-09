@@ -21,7 +21,7 @@
             <result property="tags" column="tags" jdbcType="VARCHAR"/>
             <result property="phone" column="phone" jdbcType="VARCHAR"/>
             <result property="email" column="email" jdbcType="VARCHAR"/>
-            <result property="userIds" column="userIds" jdbcType="VARCHAR"/>
+            <result property="friendsIds" column="friendsIds" jdbcType="VARCHAR"/>
             <result property="lastTime" column="lastTime" jdbcType="TIMESTAMP"/>
     </resultMap>
 
@@ -30,6 +30,6 @@
         userUrl,gender,profile，phone,email,userPassword,
         userStatus,createTime,updateTime,
         isDelete,userRole,vipState,
-        tags,lastTime,userIds
+        tags,lastTime,friendsIds
     </sql>
 </mapper>

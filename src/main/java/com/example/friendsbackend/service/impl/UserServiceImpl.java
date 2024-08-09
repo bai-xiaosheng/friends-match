@@ -7,10 +7,12 @@ import com.example.friendsbackend.common.Code;
 import com.example.friendsbackend.exception.BusinessException;
 import com.example.friendsbackend.mapper.UserMapper;
 import com.example.friendsbackend.modal.domain.User;
+import com.example.friendsbackend.modal.request.UserQueryRequest;
 import com.example.friendsbackend.service.UserService;
 import com.example.friendsbackend.utils.AlgorithmUtils;
 import com.example.friendsbackend.utils.BloomFilterUtil;
 import com.example.friendsbackend.utils.RedisUtil;
+import com.example.friendsbackend.utils.StringJsonListToLongSet;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +36,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.example.friendsbackend.constant.Constant.*;
+import static com.example.friendsbackend.utils.StringJsonListToLongSet.stringJsonListToLongSet;
 
 /**
 * @author BDS
@@ -186,6 +189,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         safeUser.setUserStatus(originUser.getUserStatus());
         safeUser.setCreateTime(originUser.getCreateTime());
         safeUser.setUserRole(originUser.getUserRole());
+        safeUser.setFriendsIds(originUser.getFriendsIds());
         return safeUser;
     }
 
@@ -439,6 +443,53 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             return false;
         }
         return true;
+    }
+
+    @Override
+    public List<User> getFriendsById(User loginUser) {
+        // 获取当前用户好友的id
+        String friendsIds = loginUser.getFriendsIds();
+        Set<Long> friendsIdList = stringJsonListToLongSet(friendsIds);
+        // 根据好友id查询好友信息
+        return friendsIdList.stream()
+                .map(id -> this.getSafeUser(userMapper.selectById(id)))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public boolean deleteFriend(User loginUser, Long id) {
+        String friendsIds = loginUser.getFriendsIds();
+        Set<Long> friendsIdSet = stringJsonListToLongSet(friendsIds);
+        if (!friendsIdSet.contains(id)){
+            throw new BusinessException(Code.PARAMS_ERROR,"不是您的好友用户");
+        }
+        User friendUser = this.getById(id);
+        Set<Long> fid = stringJsonListToLongSet(friendUser.getFriendsIds());
+        if (!friendsIdSet.remove(id)){
+            throw new BusinessException(Code.SAVE_ERROR,"请重试");
+        }
+        fid.remove(loginUser.getId());
+        Gson gson = new Gson();
+        String friends = gson.toJson(friendsIdSet);
+        String fids = gson.toJson(fid);
+        loginUser.setFriendsIds(friends);
+        friendUser.setFriendsIds(fids);
+        return this.updateById(loginUser) && this.updateById(friendUser);
+    }
+
+    @Override
+    public List<User> searchFriend(UserQueryRequest userQueryRequest, User loginUser) {
+        // 获取名称
+        String searchText = userQueryRequest.getSearchText();
+        // 获取当前用户的好友信息
+        List<User> friends = this.getFriendsById(loginUser);
+        List<User> result = new ArrayList<>();
+        friends.forEach(user -> {
+            if (user.getUserName().contains(searchText)){
+                result.add(user);
+            }
+        });
+        return result;
     }
 
     @Override

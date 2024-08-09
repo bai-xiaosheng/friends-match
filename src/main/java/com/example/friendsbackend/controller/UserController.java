@@ -9,6 +9,7 @@ import com.example.friendsbackend.common.ResultUtils;
 import com.example.friendsbackend.exception.BusinessException;
 import com.example.friendsbackend.modal.domain.User;
 import com.example.friendsbackend.modal.request.UserLoginRequest;
+import com.example.friendsbackend.modal.request.UserQueryRequest;
 import com.example.friendsbackend.modal.request.UserRegister;
 import com.example.friendsbackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import javax.websocket.server.PathParam;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -71,6 +73,14 @@ public class UserController {
 //        long id = userService.userRegister(userAccount, userPassword, checkPassword,plantId);
         long id = userService.userRegister(userAccount, userPassword, checkPassword);
         return ResultUtils.success(id);
+    }
+    @GetMapping("/{id}")
+    public BaseResponse<User> getUserById(@PathVariable("id") Integer id) {
+        if (id == null) {
+            throw new BusinessException(Code.PARAMS_ERROR,"id参数错误");
+        }
+        User user = this.userService.getById(id);
+        return ResultUtils.success(user);
     }
     @GetMapping("/current")
     public BaseResponse<User> getCurrentUser(HttpServletRequest request){
@@ -135,4 +145,29 @@ public class UserController {
         return ResultUtils.success(userResult);
     }
 
+    @GetMapping("/friends")
+    public BaseResponse<List<User>> getFriends(HttpServletRequest request){
+        User loginUser = userService.getLoginUser(request);
+        List<User> getUser = userService.getFriendsById(loginUser);
+        return ResultUtils.success(getUser);
+    }
+
+    @PostMapping("/deleteFriend/{id}")
+    public BaseResponse<Boolean> deleteFriend(@PathVariable("id") Long id, HttpServletRequest request){
+        if (id == null || id == 0L){
+            throw new BusinessException(Code.PARAMS_ERROR,"用户不存在");
+        }
+        User loginUser = userService.getLoginUser(request);
+        boolean deleteFriend = userService.deleteFriend(loginUser, id);
+        return ResultUtils.success(deleteFriend);
+    }
+    @PostMapping("/searchFriends")
+    public BaseResponse<List<User>> searchFriend(@RequestBody UserQueryRequest userQueryRequest, HttpServletRequest request) {
+        if (userQueryRequest == null) {
+            throw new BusinessException(Code.PARAMS_ERROR, "参数不能为空");
+        }
+        User loginUser = userService.getLoginUser(request);
+        List<User> searchFriend = userService.searchFriend(userQueryRequest, loginUser);
+        return ResultUtils.success(searchFriend);
+    }
 }

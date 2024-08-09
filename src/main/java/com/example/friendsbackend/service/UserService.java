@@ -2,6 +2,7 @@ package com.example.friendsbackend.service;
 
 import com.example.friendsbackend.modal.domain.User;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.example.friendsbackend.modal.request.UserQueryRequest;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -106,4 +107,29 @@ public interface UserService extends IService<User> {
      */
     boolean isAdmin(User user);
 
+    /**
+     * 获取当前登录用户的好友
+     *
+     * @param loginUser 当前登录用户
+     * @return 用户好友
+     */
+    List<User> getFriendsById(User loginUser);
+
+    /**
+     * 根据好友id，删除好友
+     *
+     * @param loginUser 当前登录用户
+     * @param id 要删除的好友id
+     * @return 是否成功删除
+     */
+    boolean deleteFriend(User loginUser, Long id);
+
+    /**
+     * 根据名称查询好友
+     *
+     * @param userQueryRequest 查询好友名称
+     * @param loginUser 当前登录用户
+     * @return 符合条件的好友
+     */
+    List<User> searchFriend(UserQueryRequest userQueryRequest, User loginUser);
 }

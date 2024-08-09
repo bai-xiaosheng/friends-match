@@ -1,8 +1,11 @@
 package com.example.friendsbackend.modal.request;
 
+import lombok.Data;
+
 import java.io.Serializable;
 import java.util.Date;
 
+@Data
 public class MyMessage implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -21,61 +24,6 @@ public class MyMessage implements Serializable {
     // 发送消息的时间
     private Date sendTime;
 
-    public String getRecUserId() {
-        return recUserId;
-    }
-
-    public void setRecUserId(String recUserId) {
-        this.recUserId = recUserId;
-    }
-
-    public String getSendUserId() {
-        return sendUserId;
-    }
-
-    public void setSendUserId(String sendUserId) {
-        this.sendUserId = sendUserId;
-    }
-
-    public String getUserName() {
-        return userName;
-    }
-
-    public void setUserName(String userName) {
-        this.userName = userName;
-    }
-
-    public String getContent() {
-        return content;
-    }
-
-    public void setContent(String content) {
-        this.content = content;
-    }
-
-    public String getRoomId() {
-        return roomId;
-    }
-
-    public void setRoomId(String roomId) {
-        this.roomId = roomId;
-    }
-
-    public int getMode() {
-        return mode;
-    }
-
-    public void setMode(Integer mode) {
-        this.mode = mode;
-    }
-
-    public Date getSendTime() {
-        return sendTime;
-    }
-
-    public void setSendTime(Date sendTime) {
-        this.sendTime = sendTime;
-    }
 
     @Override
     public String toString() {
