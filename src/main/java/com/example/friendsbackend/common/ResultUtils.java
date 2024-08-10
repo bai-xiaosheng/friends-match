@@ -4,6 +4,9 @@ public class ResultUtils {
     public static <T> BaseResponse<T> success(T data){
         return new BaseResponse(Code.SUCCESS.getCode(),data,Code.SUCCESS.getMessage(),"");
     }
+    public static <T> BaseResponse<T> success(T data,String description){
+        return new BaseResponse(Code.SUCCESS.getCode(),data,Code.SUCCESS.getMessage(),description);
+    }
 
     public static <T> BaseResponse<T> error(Code code){
         return new BaseResponse<>(code);
