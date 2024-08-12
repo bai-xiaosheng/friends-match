@@ -1,6 +1,9 @@
 package com.example.friendsbackend.constant;
 
 public interface Constant {
+    /**
+     * 用户登录态键值
+     */
     String USER_LOGIN_STATE = "USER_LOGIN_STATE";
 
     /**
@@ -17,6 +20,8 @@ public interface Constant {
      * 用户最近登录表缓存的键值
      */
     String RECENTUSER = "xiaobai:user:recentUser:id:zSet";
+
+
 
     /**
      * 距离当前时间的时间范围，毫秒 2629800000L对应一个月
