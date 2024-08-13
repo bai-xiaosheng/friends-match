@@ -64,6 +64,7 @@ public class FriendsServiceImpl extends ServiceImpl<FriendsMapper, Friends>
         if (StringUtils.isNotBlank(friendAddRequest.getRemark()) && friendAddRequest.getRemark().length() > 120) {
             throw new BusinessException(Code.PARAMS_ERROR, "申请备注最多120个字符");
         }
+
         if (loginUser.getId() == friendAddRequest.getReceiveId()) {
             throw new BusinessException(Code.PARAMS_ERROR, "不能添加自己为好友");
         }
@@ -72,15 +73,39 @@ public class FriendsServiceImpl extends ServiceImpl<FriendsMapper, Friends>
             // 抢到锁并执行
             if (lock.tryLock(0, -1, TimeUnit.MILLISECONDS)) {
                 // 2.条数大于等于1 就不能再添加
-                LambdaQueryWrapper<Friends> friendsLambdaQueryWrapper = new LambdaQueryWrapper<>();
-                friendsLambdaQueryWrapper.eq(Friends::getReceiveId, friendAddRequest.getReceiveId());
-                friendsLambdaQueryWrapper.eq(Friends::getFromId, loginUser.getId());
-                List<Friends> list = this.list(friendsLambdaQueryWrapper);
-                list.forEach(friends -> {
-                    if (list.size() > 1 && friends.getStatus() == DEFAULT_STATUS) {
-                        throw new BusinessException(Code.PARAMS_ERROR, "不能重复申请");
+                QueryWrapper<Friends> queryWrapper = new QueryWrapper<>();
+                queryWrapper.eq("fromId",loginUser.getId());
+                queryWrapper.eq("receiveId",receiveId);
+                List<Friends> friendsList = friendsMapper.selectList(queryWrapper);
+                if (friendsList != null && friendsList.size() >= 1){
+                    if (friendsList.get(0).getStatus() == 1){
+                        throw new BusinessException(Code.PARAMS_ERROR,"对方已经是你好友");
+                    }else {
+                        throw new BusinessException(Code.PARAMS_ERROR,"不能重复发送请求");
                     }
-                });
+                }
+                // 同样的逻辑检查对方是否发送了请求
+                queryWrapper = new QueryWrapper<>();
+                queryWrapper.eq("fromId",receiveId);
+                queryWrapper.eq("receiveId",loginUser.getId());
+                List<Friends> friendsList2 = friendsMapper.selectList(queryWrapper);
+                if (friendsList2 != null && friendsList2.size() >= 1){
+                    if (friendsList2.get(0).getStatus() == 1){
+                        throw new BusinessException(Code.PARAMS_ERROR,"对方已经是你好友");
+                    }else {
+                        throw new BusinessException(Code.PARAMS_ERROR,"对方以向你发送了好友申请，请在通知内查看");
+                    }
+                }
+
+//                LambdaQueryWrapper<Friends> friendsLambdaQueryWrapper = new LambdaQueryWrapper<>();
+//                friendsLambdaQueryWrapper.eq(Friends::getReceiveId, friendAddRequest.getReceiveId());
+//                friendsLambdaQueryWrapper.eq(Friends::getFromId, loginUser.getId());
+//                List<Friends> list = this.list(friendsLambdaQueryWrapper);
+//                list.forEach(friends -> {
+//                    if (list.size() >= 1 && friends.getStatus() == DEFAULT_STATUS) {
+//                        throw new BusinessException(Code.PARAMS_ERROR, "不能重复申请");
+//                    }
+//                });
                 Friends newFriend = new Friends();
                 newFriend.setFromId(loginUser.getId());
                 newFriend.setReceiveId(friendAddRequest.getReceiveId());

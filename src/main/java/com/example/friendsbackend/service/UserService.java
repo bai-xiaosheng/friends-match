@@ -125,11 +125,11 @@ public interface UserService extends IService<User> {
     boolean deleteFriend(User loginUser, Long id);
 
     /**
-     * 根据名称查询好友
+     * 根据用户账号查询好友
      *
-     * @param userQueryRequest 查询好友名称
+     * @param userQueryRequest 查询用户账号
      * @param loginUser 当前登录用户
-     * @return 符合条件的好友
+     * @return 符合条件的用户
      */
     List<User> searchFriend(UserQueryRequest userQueryRequest, User loginUser);
 }

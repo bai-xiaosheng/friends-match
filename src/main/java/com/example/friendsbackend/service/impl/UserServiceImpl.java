@@ -447,8 +447,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     @Override
     public List<User> getFriendsById(User loginUser) {
+        User user = userMapper.selectById(loginUser.getId());
         // 获取当前用户好友的id
-        String friendsIds = loginUser.getFriendsIds();
+        String friendsIds = user.getFriendsIds();
         Set<Long> friendsIdList = stringJsonListToLongSet(friendsIds);
         // 根据好友id查询好友信息
         return friendsIdList.stream()
@@ -480,16 +481,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     @Override
     public List<User> searchFriend(UserQueryRequest userQueryRequest, User loginUser) {
         // 获取名称
-        String searchText = userQueryRequest.getSearchText();
-        // 获取当前用户的好友信息
-        List<User> friends = this.getFriendsById(loginUser);
-        List<User> result = new ArrayList<>();
-        friends.forEach(user -> {
-            if (user.getUserName().contains(searchText)){
-                result.add(user);
-            }
-        });
-        return result;
+        String userAccount = userQueryRequest.getSearchText();
+        // 获取所有的用户信息
+//        // 优先在以添加的好友中查询
+//        List<User> friends = this.getFriendsById(loginUser);
+//        List<User> result = new ArrayList<>();
+//        friends.forEach(user -> {
+//            if (user.getUserName().contains(searchText)){
+//                result.add(user);
+//            }
+//        });
+        // 在最近登录的用户的中查询
+        return this.searchUserByUserAccount(userAccount);
     }
 
     @Override

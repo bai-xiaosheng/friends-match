@@ -161,7 +161,7 @@ public class UserController {
         boolean deleteFriend = userService.deleteFriend(loginUser, id);
         return ResultUtils.success(deleteFriend);
     }
-    @PostMapping("/searchFriends")
+    @PostMapping("/searchFriend")
     public BaseResponse<List<User>> searchFriend(@RequestBody UserQueryRequest userQueryRequest, HttpServletRequest request) {
         if (userQueryRequest == null) {
             throw new BusinessException(Code.PARAMS_ERROR, "参数不能为空");

@@ -10,7 +10,7 @@ import com.example.friendsbackend.mapper.UserMapper;
 import com.example.friendsbackend.modal.domain.Chat;
 import com.example.friendsbackend.modal.domain.Team;
 import com.example.friendsbackend.modal.request.MessageRequest;
-import com.example.friendsbackend.modal.request.MessageVo;
+import com.example.friendsbackend.modal.vo.MessageVo;
 import com.example.friendsbackend.modal.domain.User;
 import com.example.friendsbackend.modal.vo.WebSocketVo;
 import com.example.friendsbackend.service.ChatService;
@@ -42,9 +42,9 @@ import static com.example.friendsbackend.constant.Constant.USER_LOGIN_STATE;
  * @ServerEndpoint("/websocket/{userId}/{teamId}") 中的userId是前端创建会话窗口时当前用户的id,即消息发送者的id
  */
 //@ServerEndpoint("/chat")
-@ServerEndpoint(value = "/websocket/{userId}/{teamId}", configurator = HttpSessionConfig.class)
 @Component
 @Slf4j
+@ServerEndpoint(value = "/websocket/{userId}/{teamId}", configurator = HttpSessionConfig.class)
 public class WebSocket {
     // 定义静态变量，在websocket中导入,或者是在这里定义一个方法导入
     public static UserTeamService userTeamService;
@@ -110,13 +110,18 @@ public class WebSocket {
                     stringWebSocketConcurrentHashMap.put(userId,this);
                     ROOMS.put(teamId,stringWebSocketConcurrentHashMap);
                 }
-                addOlineCount();
-            }else {
-                SESSIONS.add(session);
-                SESSION_POOL.put(userId,session);
-                log.info("有新用户加入，userId={}, 当前在线人数为：{}", userId, SESSION_POOL.size());
-                sendAllUsers();
             }
+//            else {
+//                SESSIONS.add(session);
+//                SESSION_POOL.put(userId,session);
+//                log.info("有新用户加入，userId={}, 当前在线人数为：{}", userId, SESSION_POOL.size());
+//                sendAllUsers();
+//            }
+            SESSIONS.add(session);
+            SESSION_POOL.put(userId,session);
+            log.info("有新用户加入，userId={}, 当前在线人数为：{}", userId, SESSION_POOL.size());
+            System.out.println("有新用户加入，userId="+ userId + ", 当前在线人数为："  + SESSION_POOL.size());
+            onlineCount.incrementAndGet();
 
         }catch (Exception e){
             log.error("onOpen error",e);
@@ -129,14 +134,17 @@ public class WebSocket {
             if (!"NaN".equals(teamId)){
                 ROOMS.get(teamId).remove(userId);
                 log.info("用户退出：当前在线人数为：" + onlineCount.decrementAndGet());
+                System.out.println("用户退出：当前在线人数为：" + onlineCount.decrementAndGet());
             }else {
                 if (!SESSION_POOL.isEmpty()){
                     SESSION_POOL.remove(userId);
                     SESSIONS.remove(session);
                 }
                 log.info("[WebSocket消息] 连接断开，当前在线总数为:" + onlineCount.get());
+                System.out.println("[WebSocket消息] 连接断开，当前在线总数为:" + onlineCount.get());
                 sendAllUsers();
             }
+            onlineCount.decrementAndGet();
         }catch (Exception e){
             log.error("WebSocket onClose error:", e);
         }
@@ -146,7 +154,7 @@ public class WebSocket {
     public void onMessage(String message, @PathParam("userId") String userId){
         if ("PING".equals(message)){
             sendOneMessage(userId,"pong");
-            log.error("心跳包，发送给={}，在线：{}人",userId,message);
+            log.info("心跳包，发送给={}，在线：{}人",userId,onlineCount.get());
             return;
         }
         log.info("服务端收到userId={}的消息：{}",userId,message);
@@ -216,7 +224,7 @@ public class WebSocket {
      * @param chatType 聊天类型
      */
     private void teamChat(User fromUser, String text, Team team, Integer chatType) {
-        ConcurrentHashMap<String, WebSocket> webSocketConcurrentHashMap = ROOMS.get(team.toString());
+        ConcurrentHashMap<String, WebSocket> webSocketConcurrentHashMap = ROOMS.get(team.getId().toString());
         if (webSocketConcurrentHashMap == null){
             sendOneMessage(fromUser.toString(),"队伍不存在");
             return;
@@ -238,7 +246,6 @@ public class WebSocket {
         User loginUser = (User) this.httpSession.getAttribute(USER_LOGIN_STATE);
         if (loginUser.getId() == fromUser.getId()){
             messageVo.setIsMy(true);
-
         }
         if (fromUser.getId() == team.getUserId() || fromUser.getId() == ADMIN_ROLE){
             messageVo.setIsAdmin(true);
@@ -268,6 +275,20 @@ public class WebSocket {
         if (toSession != null){
 //            MessageVo messageVo = chatService.chatResult(fromUser.getId(), toId, text, chatType, DateUtil.date(System.currentTimeMillis()));
             MessageVo messageVo = new MessageVo();
+            // 获得发送方websocketvo类型 姓名 账号 头像
+            WebSocketVo fromWebSocketVo = new WebSocketVo();
+            BeanUtils.copyProperties(fromUser,fromWebSocketVo);
+            messageVo.setFormUser(fromWebSocketVo);
+            // 获得接收方websocketvo类型 姓名 账号 头像
+            WebSocketVo toWebSocketVo = new WebSocketVo();
+            BeanUtils.copyProperties(userMapper.selectById(toId),toWebSocketVo);
+            messageVo.setToUser(toWebSocketVo);
+            messageVo.setText(text);
+            messageVo.setIsMy(false);
+            messageVo.setChatType(chatType);
+            messageVo.setIsAdmin(fromUser.getUserRole() == ADMIN_ROLE);
+            SimpleDateFormat ft = new SimpleDateFormat ("yyyy-MM-dd hh:mm:ss");
+            messageVo.setCreateTime(ft.format(new Date()));
             User loginUser = (User) this.httpSession.getAttribute(USER_LOGIN_STATE);
             if (loginUser.getId() == fromUser.getId()){
                 messageVo.setIsMy(true);

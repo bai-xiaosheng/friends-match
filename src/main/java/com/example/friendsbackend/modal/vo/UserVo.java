@@ -38,5 +38,9 @@ public class UserVo {
     private String email;
 
 
+    /**
+     * 添加的好友
+     */
+    private String friendsIds;
 
 }

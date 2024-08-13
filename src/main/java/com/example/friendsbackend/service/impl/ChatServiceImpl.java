@@ -8,6 +8,8 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -17,9 +19,8 @@ import com.example.friendsbackend.modal.domain.Chat;
 
 import com.example.friendsbackend.modal.domain.User;
 import com.example.friendsbackend.modal.request.ChatRequest;
-import com.example.friendsbackend.modal.request.MessageVo;
+import com.example.friendsbackend.modal.vo.MessageVo;
 import com.example.friendsbackend.service.ChatService;
-import com.sun.org.apache.bcel.internal.generic.IF_ACMPEQ;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
@@ -69,14 +70,19 @@ public class ChatServiceImpl extends ServiceImpl<ChatMapper, Chat>
         QueryWrapper<Chat> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("sendUserId", loginUser.getId());
         queryWrapper.eq("recUserId", chatRequest.getToId());
-        List<Chat> sendChats = chatMapper.selectList(queryWrapper);
-        queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("sendUserId", chatRequest.getToId());
-        queryWrapper.eq("recUserId", loginUser.getId());
+//        List<Chat> sendChats = chatMapper.selectList(queryWrapper);
+//        queryWrapper = new QueryWrapper<>();
+        queryWrapper.or(chatQueryWrapper -> chatQueryWrapper.eq("sendUserId", chatRequest.getToId()).eq("recUserId", loginUser.getId()));
+//        queryWrapper.eq("sendUserId", chatRequest.getToId());
+//        queryWrapper.eq("recUserId", loginUser.getId());
+//        queryWrapper.orderByAsc("sendTime");
         List<Chat> recChats = chatMapper.selectList(queryWrapper);
         // 转换查询结果的格式
-        List<MessageVo> messageVoList = new ArrayList<>(chatListToMessageVoList(sendChats, loginUser));
-        messageVoList.addAll(chatListToMessageVoList(recChats, PRIVATE_CHAT, loginUser));
+//        List<MessageVo> messageVoList = new ArrayList<>(chatListToMessageVoList(sendChats, loginUser));
+        List<MessageVo> messageVoList = chatListToMessageVoList(recChats, PRIVATE_CHAT, loginUser);
+//        queryWrapper.or(i -> i.and(j -> j.eq("name", "李白").eq("status", "alive"))
+//                .or(j -> j.eq("name", "杜甫").eq("status", "alive")));
+
         saveCache(CACHE_CHAT_PRIVATE,loginUser.getId() + "to" + chatRequest.getToId(),messageVoList);
         return messageVoList;
     }
@@ -96,6 +102,7 @@ public class ChatServiceImpl extends ServiceImpl<ChatMapper, Chat>
             throw new BusinessException(Code.PARAMS_ERROR,"不是大厅聊天");
         }
         // 从缓存中读取大厅聊天记录
+        String s = String.valueOf(loginUser.getId());
         List<MessageVo> messageVos = getCache(CACHE_CHAT_HALL, String.valueOf(loginUser.getId()));
         if (messageVos != null && !messageVos.isEmpty()){
             saveCache(CACHE_CHAT_HALL,String.valueOf(loginUser.getId()),messageVos);
@@ -116,9 +123,9 @@ public class ChatServiceImpl extends ServiceImpl<ChatMapper, Chat>
             throw new BusinessException(Code.PARAMS_ERROR,"参数有误");
         }
         // 从缓存中读取数据
-        List<MessageVo> messageVos = getCache(CACHE_CHAT_TEAM, String.valueOf(loginUser.getId()));
+        List<MessageVo> messageVos = getCache(CACHE_CHAT_TEAM, String.valueOf(chatRequest.getTeamId()));
         if (messageVos != null && !messageVos.isEmpty()){
-            saveCache(CACHE_CHAT_TEAM, String.valueOf(loginUser.getId()), messageVos);
+            saveCache(CACHE_CHAT_TEAM, String.valueOf(chatRequest.getTeamId()), messageVos);
             return messageVos;
         }
         // 从数据库中读取数据
@@ -126,7 +133,7 @@ public class ChatServiceImpl extends ServiceImpl<ChatMapper, Chat>
         queryWrapper.eq("teamId",chatRequest.getTeamId());
         List<Chat> chats = chatMapper.selectList(queryWrapper);
         List<MessageVo> messageVoList = chatListToMessageVoList(chats, TEAM_CHAT, loginUser);
-        saveCache(CACHE_CHAT_TEAM, String.valueOf(loginUser.getId()), messageVoList);
+        saveCache(CACHE_CHAT_TEAM, String.valueOf(chatRequest.getTeamId()), messageVoList);
         return messageVoList;
     }
 
@@ -203,11 +210,11 @@ public class ChatServiceImpl extends ServiceImpl<ChatMapper, Chat>
         try {
             ValueOperations<String, List<MessageVo>> stringListValueOperations = redisTemplate.opsForValue();
             // 解决缓存雪崩
-//        int i = RandomUtils.
+            int randomNum = ThreadLocalRandom.current().nextInt(2, 3 + 1);
             if (key.equals(CACHE_CHAT_HALL)){
-                stringListValueOperations.set(key,messageVos);
+                stringListValueOperations.set(key,messageVos,2 + randomNum / 10, TimeUnit.MINUTES);
             }else {
-                stringListValueOperations.set(key + id,messageVos);
+                stringListValueOperations.set(key + id,messageVos,2 + randomNum / 10, TimeUnit.MINUTES);
             }
         } catch (Exception e) {
             log.error("saveCache error",e);

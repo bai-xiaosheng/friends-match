@@ -211,9 +211,9 @@ public class TeamController {
         return ResultUtils.success(teams);
     }
     @GetMapping("/teams")
-    public BaseResponse<List<Team>> getTeams(){
-        List<Team> list = teamService.list();
-        return ResultUtils.success(list);
+    public BaseResponse<TeamUserVo> getTeams(){
+        TeamUserVo teams = teamService.getTeams();
+        return ResultUtils.success(teams);
     }
 
     @PostMapping("/kickOutUser")

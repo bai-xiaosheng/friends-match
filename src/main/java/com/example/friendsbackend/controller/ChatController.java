@@ -6,25 +6,21 @@ import com.example.friendsbackend.common.ResultUtils;
 import com.example.friendsbackend.exception.BusinessException;
 import com.example.friendsbackend.modal.domain.User;
 import com.example.friendsbackend.modal.request.ChatRequest;
-import com.example.friendsbackend.modal.request.MessageVo;
+import com.example.friendsbackend.modal.vo.MessageVo;
 import com.example.friendsbackend.service.ChatService;
 import com.example.friendsbackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.PushBuilder;
 import java.util.List;
 
 import static com.example.friendsbackend.constant.ChatConstant.*;
 
 @RestController
 @Slf4j
-@RequestMapping("/Chat")
+@RequestMapping("/chat")
 public class ChatController {
 
     @Resource
@@ -56,8 +52,8 @@ public class ChatController {
      * @param request 登录信息
      * @return data：list（发送者信息（用户名称，用户账号，用户头像），发送内容，发送类型，是否为登陆者发送的信息，是否为管理员，发送时间
      */
-    @PostMapping("/hallChat")
-    public BaseResponse<List<MessageVo>> getHallChat(HttpServletRequest request){
+    @GetMapping("/hallChat")
+    public BaseResponse<List<MessageVo>> getHallChat(HttpServletRequest request) {
         User loginUser = userService.getLoginUser(request);
         List<MessageVo> hallChat = chatService.getHallChat(HALL_CHAT, loginUser);
         return ResultUtils.success(hallChat);

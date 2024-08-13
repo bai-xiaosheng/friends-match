@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.example.friendsbackend.modal.domain.Chat;
 import com.example.friendsbackend.modal.domain.User;
 import com.example.friendsbackend.modal.request.ChatRequest;
-import com.example.friendsbackend.modal.request.MessageVo;
+import com.example.friendsbackend.modal.vo.MessageVo;
 
 import java.util.List;
 

@@ -127,4 +127,9 @@ public interface TeamService extends IService<Team> {
      * @return 是否转移成功 true - 转移成功
      */
     Boolean transferTeam(TransferTeamRequest transferTeamRequest, User loginUser);
+
+    /**
+     * @return set（队伍信息）
+     */
+    TeamUserVo getTeams();
 }

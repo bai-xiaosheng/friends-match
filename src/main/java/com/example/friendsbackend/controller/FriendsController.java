@@ -83,7 +83,7 @@ public class FriendsController {
      * @param request 登录信息
      * @return boolean
      */
-    @PostMapping("argee/{fromId}")
+    @PostMapping("agree/{fromId}")
     public BaseResponse<Boolean> agreeToApply(@PathVariable("fromId") Long fromId, HttpServletRequest request){
         User loginUser = userService.getLoginUser(request);
         boolean agreeToApplyStatus = friendsService.agreeToApply(loginUser, fromId);

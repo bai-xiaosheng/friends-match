@@ -26,11 +26,14 @@ import org.apache.commons.lang3.StringUtils;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -42,6 +45,9 @@ import java.util.stream.Collectors;
 @Service
 public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
     implements TeamService{
+    private static final String SALT = "xiaobai_team";
+    private static final String BY_TEAM_IDS = String.format("xiaobai:team:getTeamListByTeamIds:%s", "byTeamIds");
+    private static final String TEAMS_KEY = String.format("xiaobai:team:getTeams:%s", "getTeams");
     @Resource
     private TeamMapper teamMapper;
     @Resource
@@ -59,6 +65,8 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
     @Resource
     private RedissonClient redissonClient;
 
+    @Resource
+    private RedisTemplate<String,Object> redisTemplate;
     @Override
     public Boolean updateTeam(TeamUpdateRequest teamUpdateRequest, User loginUser) {
         //需求：队长和管理员可以修改队伍信息（队伍名称、描述、最大人数、过期时间、状态）
@@ -456,7 +464,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("teamId",teamId);
         Set<User> userCollect = userTeamMapper.selectList(queryWrapper).stream()
-                .map((UserTeam userTeam) -> userService.getById(userTeam.getUserId()))
+                .map((UserTeam userTeam) -> userService.getSafeUser(userService.getById(userTeam.getUserId())))
                 .collect(Collectors.toSet());
         TeamVo teamVo = new TeamVo();
         teamVo.setId(teamId);
@@ -469,7 +477,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         teamVo.setStatus(team.getStatus());
         teamVo.setCreateTime(team.getCreateTime());
         teamVo.setAnnounce("");
-        teamVo.setUser(loginUser);
+        teamVo.setUser(userService.getSafeUser(userMapper.selectById(team.getUserId())));
         teamVo.setUserSet(userCollect);
         return teamVo;
     }
@@ -616,6 +624,34 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         team.setUpdateTime(new Date());
         teamMapper.updateById(team);
         return true;
+    }
+
+    @Override
+    public TeamUserVo getTeams() {
+        ValueOperations<String, Object> valueOperations = redisTemplate.opsForValue();
+        TeamUserVo teamList = (TeamUserVo) valueOperations.get(TEAMS_KEY);
+        if (teamList != null) {
+            List<TeamVo> lists = new ArrayList<>(teamList.getTeamSet());
+            Collections.shuffle(lists);
+            HashSet<TeamVo> teamVos = new HashSet<>(lists);
+            teamList.setTeamSet(teamVos);
+            return teamList;
+        }
+        List<Team> teams = this.list();
+        TeamUserVo teamUserVo = teamSet(teams);
+        setRedis(TEAMS_KEY, teamUserVo);
+        return teamUserVo;
+    }
+
+    private void setRedis(String redisKey, Object data) {
+        ValueOperations<String, Object> valueOperations = redisTemplate.opsForValue();
+        try {
+            // 解决缓存雪崩
+            int randomNum = ThreadLocalRandom.current().nextInt(2, 3 + 1);
+            valueOperations.set(redisKey, data, 1 + randomNum / 10, TimeUnit.MINUTES);
+        } catch (Exception e) {
+            log.error("redis set key error");
+        }
     }
 }
 

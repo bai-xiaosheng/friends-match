@@ -1,4 +1,4 @@
-package com.example.friendsbackend.modal.request;
+package com.example.friendsbackend.modal.vo;
 
 import com.example.friendsbackend.modal.vo.WebSocketVo;
 import lombok.Data;

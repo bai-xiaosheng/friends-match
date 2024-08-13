@@ -28,4 +28,8 @@ public class HttpSessionConfig extends ServerEndpointConfig.Configurator impleme
         }
         super.modifyHandshake(sec, request, response);
     }
+
+    @Override
+    public void requestDestroyed(ServletRequestEvent arg0) {
+    }
 }
