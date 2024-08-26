@@ -23,7 +23,7 @@ public class InsertUsers {
     private UserService userService;
 
     //线程设置
-    private ExecutorService executorService = new ThreadPoolExecutor(16,1000,10000, TimeUnit.MINUTES,new ArrayBlockingQueue<>(10000));
+    private ExecutorService executorService = new ThreadPoolExecutor(16,1000,10000, TimeUnit.MINUTES, new ArrayBlockingQueue<>(10000));
     @Test
     public void doInsertUser(){
         StopWatch stopWatch = new StopWatch();

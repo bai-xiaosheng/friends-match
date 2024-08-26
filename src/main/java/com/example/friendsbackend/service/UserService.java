@@ -3,6 +3,7 @@ package com.example.friendsbackend.service;
 import com.example.friendsbackend.modal.domain.User;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.example.friendsbackend.modal.request.UserQueryRequest;
+import com.example.friendsbackend.modal.request.UserRegister;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -19,12 +20,11 @@ public interface UserService extends IService<User> {
     /**
      * 只需要用户账号跟数据库不重复即可创建
      *
-     * @param userAccount 用户账号
-     * @param userPassword  用户密码
-     * @param checkPassword  校验密码（二次密码）
+     * @param userRegister 用户名称，用户账号，用秘密吗，校验密码
+
      * @return 用户 id
      */
-    long userRegister(String userAccount, String userPassword, String checkPassword);
+    long userRegister(UserRegister userRegister);
 
     /**
      * 用户登录

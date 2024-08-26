@@ -1,4 +1,5 @@
 package com.example.friendsbackend.service.impl;
+import java.util.Date;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -8,6 +9,7 @@ import com.example.friendsbackend.exception.BusinessException;
 import com.example.friendsbackend.mapper.UserMapper;
 import com.example.friendsbackend.modal.domain.User;
 import com.example.friendsbackend.modal.request.UserQueryRequest;
+import com.example.friendsbackend.modal.request.UserRegister;
 import com.example.friendsbackend.service.UserService;
 import com.example.friendsbackend.utils.AlgorithmUtils;
 import com.example.friendsbackend.utils.BloomFilterUtil;
@@ -19,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.math3.util.Pair;
 import org.redisson.api.RBloomFilter;
+import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -60,13 +63,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     private BloomFilterUtil bloomFilterUtil;
     private  RBloomFilter<Object> bloomFilter;
     // 预测插入数量
-    static long expectedInsertions = 50000L;
+    static long expectedInsertions = 55000L;
     // 误判率
     static double falseProbability = 0.01;
 
-    @PostConstruct  //项目启动时执行该方法，或者理解为在spring容器初始化时执行该方法
+    @PostConstruct
     public void init(){
-        // 项目启动时初始化 bloomFilter
+        // 初始化 Bloom Filter
+        // 首先删除旧的布隆过滤器，如果布隆过滤器参数没有变化的话可以不删
+        bloomFilterUtil.deleteBloomFilter("userAccountWhiteList");
+//        RLock lock = redissonClient.getLock("xiaobai:user:recentUser:lock");
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         queryWrapper.select("userAccount");
         List<User> userList = this.list(queryWrapper);
@@ -74,12 +80,48 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         for (User user : userList){
             bloomFilter.add(user.getUserAccount());
         }
+
+        // 缓存最近登录用户表
+        RLock lock = redissonClient.getLock("xiaobai:user:recentUser:lock");
+        try {
+            if (lock.tryLock(0, 1, TimeUnit.MINUTES)) { // 使用更合适的时间单位
+                // 查询最近登录的1000个用户
+                queryWrapper = new QueryWrapper<>();
+                queryWrapper.select("id", "lastTime");
+                queryWrapper.orderByDesc("lastTime");
+                queryWrapper.last("limit 0,1000");
+                userList = userMapper.selectList(queryWrapper);
+                for (User user : userList){
+                    redisUtil.zsetSet(RECENTUSER, user.getId(), user.getLastTime().getTime());
+                }
+
+                // 查询 SVIP 和 VIP 用户
+                queryWrapper = new QueryWrapper<>();
+                queryWrapper.select("id", "lastTime");
+                queryWrapper.in("vipState", '1', '2'); // 使用 in() 方法代替多个 eq() 方法
+                userList = userMapper.selectList(queryWrapper);
+                for (User user : userList){
+                    redisUtil.zsetSet(RECENTUSER, user.getId(), user.getLastTime().getTime());
+                }
+            }
+        } catch (InterruptedException e) {
+            log.error("doCacheRecentUser error", e);
+        } finally {
+            if (lock.isHeldByCurrentThread()){
+                lock.unlock();
+            }
+        }
     }
 
 
+
     @Override
-    public long userRegister(String userAccount, String userPassword, String checkPassword) {
-        if (StringUtils.isAnyBlank(userAccount,userPassword,checkPassword))
+    public long userRegister(UserRegister userRegister) {
+        String username = userRegister.getUsername();
+        String userAccount = userRegister.getUserAccount();
+        String userPassword = userRegister.getUserPassword();
+        String checkPassword = userRegister.getCheckPassword();
+        if (StringUtils.isAnyBlank(username,userAccount,userPassword,checkPassword))
             return 0;
         if (userAccount.length() < 4) {
             throw new BusinessException(Code.PARAMS_ERROR,"账户长度小于4位");
@@ -108,8 +150,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         String savePassword = DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
         //3.插入数据
         User user = new User();
+        user.setUserName(username);
+        user.setUserUrl("https://tse2-mm.cn.bing.net/th/id/OIP-C.Ekyqq_T0BDXvef1bfI2qDQHaHa?w=213&h=213&c=7&r=0&o=5&pid=1.7");
+        user.setGender(0);
         user.setUserAccount(userAccount);
         user.setUserPassword(savePassword);
+        user.setUserStatus(0);
+        user.setCreateTime(new Date());
+        user.setUpdateTime(new Date());
+        user.setLastTime(new Date());
+        user.setIsDelete(0);
+        user.setUserRole(0);
+
         boolean result = this.save(user);
         if (!result) {
             throw new BusinessException(Code.SAVE_ERROR,"请重试");
@@ -203,7 +255,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     @Override
     public List<User> searchUserByTag(long num, List<String> tagsNameList){
 
-        System.out.println("数据开始查询时间戳："+System.currentTimeMillis());
+//        System.out.println("数据开始查询时间戳："+System.currentTimeMillis());
 //        // sql查询包含输入标签的用户
 //        if (CollectionUtils.isEmpty(tagsNameList)){
 //            throw new BusinessException(Code.PARAMS_ERROR);
@@ -223,14 +275,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
         // 1. 查询到所有用户 id 和标签
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        queryWrapper.in("id",userIdSet);
+        if (userIdSet != null && !userIdSet.isEmpty()){
+            queryWrapper.in("id",userIdSet);
+        }
         queryWrapper.select("id","tags");
 //        queryWrapper.isNotNull("tags");
 //        queryWrapper.orderByDesc("lastTime");
 //        queryWrapper.last("limit 0,1000");
         List<User> userList = this.list(queryWrapper);
 //
-        System.out.println("查询1000条用户后时间戳："+System.currentTimeMillis());
+//        System.out.println("查询1000条用户后时间戳："+System.currentTimeMillis());
 
         // 2. 获取用户标签，使用 gson 将 json 格式数据转换为字符串列表
         Gson gson = new Gson();
@@ -341,12 +395,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             return userList;
         }
 
-        //如果没有缓存值，从数据库读取
+        //如果没有缓存值，从最近登录用户表中读取
         System.out.println("从最近登录用户表中读取：");
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         // 从缓存中读取最近登录用户的id,2629800000表示一个月对应的毫秒数
-        Set<Object> userIdSet = redisUtil.zsetAllQuery(RECENTUSER, System.currentTimeMillis() - 2629800000L, System.currentTimeMillis());
-        queryWrapper.in("id",userIdSet);
+        Set<Object> userIdSet = redisUtil.zsetAllQuery(RECENTUSER, System.currentTimeMillis() - RECENTTIME, System.currentTimeMillis());
+        if (userIdSet != null && !userIdSet.isEmpty()){
+            queryWrapper.in("id",userIdSet);
+
+        }
+        queryWrapper.ne("id",id);
+        queryWrapper.orderByDesc("vipState");
+//        queryWrapper.last("limit 0,1000");
+
 //        queryWrapper.select("id","tags");
 
         Page<User> userPage = this.page(new Page<>(pageNum, pageSize), queryWrapper);

@@ -50,6 +50,14 @@ public interface ChatService extends IService<Chat> {
     List<MessageVo> getPrivateChat(ChatRequest chatRequest, int privateChat, User loginUser);
 
     /**
+     * 大模型历史消息
+     *
+     * @param loginUser 登录用户
+     * @return 登录用户与大模型历史聊天信息
+     */
+    List<MessageVo> getAiLastChat(User loginUser);
+
+    /**
      * 删除缓存中的key
      *
      * @param key redisKey
@@ -75,4 +83,12 @@ public interface ChatService extends IService<Chat> {
      * @return list（发送者信息（用户名称，用户账号，用户头像），发送内容，发送类型，是否为登陆者发送的信息，是否为管理员，发送时间
      */
     List<MessageVo> getTeamChat(ChatRequest chatRequest, int teamChat, User loginUser);
+
+    /**
+     * 利用大模型获取当前用户问题的答案
+     *
+     * @param loginUser 登录用户
+     * @return 大模型答案
+     */
+    List<MessageVo> getAiAnswer(ChatRequest chatRequest, User loginUser);
 }

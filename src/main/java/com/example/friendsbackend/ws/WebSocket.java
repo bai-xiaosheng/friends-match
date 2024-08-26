@@ -120,7 +120,7 @@ public class WebSocket {
             SESSIONS.add(session);
             SESSION_POOL.put(userId,session);
             log.info("有新用户加入，userId={}, 当前在线人数为：{}", userId, SESSION_POOL.size());
-            System.out.println("有新用户加入，userId="+ userId + ", 当前在线人数为："  + SESSION_POOL.size());
+//            System.out.println("有新用户加入，userId="+ userId + ", 当前在线人数为："  + SESSION_POOL.size());
             onlineCount.incrementAndGet();
 
         }catch (Exception e){
@@ -134,17 +134,17 @@ public class WebSocket {
             if (!"NaN".equals(teamId)){
                 ROOMS.get(teamId).remove(userId);
                 log.info("用户退出：当前在线人数为：" + onlineCount.decrementAndGet());
-                System.out.println("用户退出：当前在线人数为：" + onlineCount.decrementAndGet());
+//                System.out.println("用户退出：当前在线人数为：" + onlineCount.decrementAndGet());
             }else {
                 if (!SESSION_POOL.isEmpty()){
                     SESSION_POOL.remove(userId);
                     SESSIONS.remove(session);
                 }
-                log.info("[WebSocket消息] 连接断开，当前在线总数为:" + onlineCount.get());
-                System.out.println("[WebSocket消息] 连接断开，当前在线总数为:" + onlineCount.get());
+                log.info("[WebSocket消息] 连接断开，当前在线总数为:" + onlineCount.decrementAndGet());
+//                System.out.println("[WebSocket消息] 连接断开，当前在线总数为:" + onlineCount.get());
                 sendAllUsers();
             }
-            onlineCount.decrementAndGet();
+//            onlineCount.decrementAndGet();
         }catch (Exception e){
             log.error("WebSocket onClose error:", e);
         }

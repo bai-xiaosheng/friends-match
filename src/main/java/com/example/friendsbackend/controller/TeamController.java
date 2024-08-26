@@ -53,7 +53,7 @@ public class TeamController {
     @Resource
     private RedisTemplate<String, Object> redisTemplate;
 
-    @PostMapping("/createTeam")
+    @PostMapping("/create")
     public BaseResponse<Long> teamCreate(@RequestBody TeamCreateRequest teamCreateRequest, HttpServletRequest request){
         User loginUser = userService.getLoginUser(request);
         if (teamCreateRequest == null){

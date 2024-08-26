@@ -17,4 +17,9 @@ public class ChatRequest implements Serializable {
      * 接收消息id
      */
     private Long toId;
+
+    /**
+     * 发送的内容
+     */
+    private String text;
 }

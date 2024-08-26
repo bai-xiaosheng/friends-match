@@ -66,12 +66,12 @@ public class UserController {
         if (userRegister == null) {
             throw new BusinessException(Code.PARAMS_ERROR);
         }
-        String userAccount = userRegister.getUserAccount();
-        String userPassword = userRegister.getUserPassword();
-        String checkPassword = userRegister.getCheckPassword();
+//        String userAccount = userRegister.getUserAccount();
+//        String userPassword = userRegister.getUserPassword();
+//        String checkPassword = userRegister.getCheckPassword();
 //        String plantId = userRegister.getPlantId();
 //        long id = userService.userRegister(userAccount, userPassword, checkPassword,plantId);
-        long id = userService.userRegister(userAccount, userPassword, checkPassword);
+        long id = userService.userRegister(userRegister);
         return ResultUtils.success(id);
     }
     @GetMapping("/{id}")
@@ -103,7 +103,7 @@ public class UserController {
         return ResultUtils.success(userList);
     }
     @GetMapping("/recommend")
-    public BaseResponse<List<User>> recommendUser(long pageSize, long pageNum, HttpServletRequest request){
+    public BaseResponse<List<User>> recommendUser(@RequestParam long pageSize, @RequestParam long pageNum, HttpServletRequest request){
         //加入缓存
 //        User loginUser = userService.getLoginUser(request);
 

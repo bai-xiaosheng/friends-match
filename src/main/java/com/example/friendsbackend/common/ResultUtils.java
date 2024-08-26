@@ -16,7 +16,14 @@ public class ResultUtils {
         return new BaseResponse<>(code,message,description);
     }
 
+    public static BaseResponse error(int code, String message) {
+        return new BaseResponse<>(code,message,"");
+    }
+
     public static BaseResponse error(Code code, String message, String description) {
         return new BaseResponse<>(code.getCode(),message,description);
+    }
+    public static BaseResponse error(Code code, String message) {
+        return new BaseResponse<>(code.getCode(),message,"");
     }
 }

@@ -16,16 +16,36 @@ spring:
     port: ${REDIS_PORT:6379}
     host: ${REDIS_HOST:81.70.22.11}
     database: 0
-
+#
 server:
   port: 8080
   servlet:
     context-path: /api
     session:
       cookie:
-        domain: 81.70.22.11
-        http-only: true
-        secure: false
+#        domain: 81.70.22.11
+#        secure: false
+#        http-only: true
+        domain: xiaobaiai.com.cn
+        secure: true
+#
+#  ssl:
+#    key-password:
+#server:
+#  port: 443
+#  servlet:
+#    context-path: /api
+#  ssl:
+#    key-store: classpath:keystore.p12
+#    key-store-password: mykeystorepassword
+#    key-alias: mykeyalias
+#    key-password: mykeypassword
+    # 如果需要配置信任库
+    # trust-store: classpath:truststore.jks
+    # trust-store-password: mytruststorepassword
+
+
+
 
 
 mybatis-plus:
@@ -40,5 +60,7 @@ mybatis-plus:
 
 knife4j:
   enable: true
+  # 开启生产环境屏蔽
+  production: true
 
 

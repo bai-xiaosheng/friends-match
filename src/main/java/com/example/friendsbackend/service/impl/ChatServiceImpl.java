@@ -1,13 +1,16 @@
 package com.example.friendsbackend.service.impl;
 import com.example.friendsbackend.common.Code;
+import com.example.friendsbackend.common.ResultUtils;
+import com.example.friendsbackend.component.XfXhStreamClient;
+import com.example.friendsbackend.config.XfXhConfig;
 import com.example.friendsbackend.exception.BusinessException;
+import com.example.friendsbackend.listener.XfXhWebSocketListener;
 import com.example.friendsbackend.mapper.UserMapper;
+import com.example.friendsbackend.modal.dto.MsgDTO;
 import com.example.friendsbackend.modal.vo.WebSocketVo;
 
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -21,6 +24,7 @@ import com.example.friendsbackend.modal.domain.User;
 import com.example.friendsbackend.modal.request.ChatRequest;
 import com.example.friendsbackend.modal.vo.MessageVo;
 import com.example.friendsbackend.service.ChatService;
+import okhttp3.WebSocket;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
@@ -29,6 +33,7 @@ import org.springframework.stereotype.Service;
 import javax.annotation.Resource;
 
 import static com.example.friendsbackend.constant.ChatConstant.*;
+import static com.example.friendsbackend.ws.WebSocket.chatService;
 
 /**
 * @author BDS
@@ -38,6 +43,13 @@ import static com.example.friendsbackend.constant.ChatConstant.*;
 @Service
 public class ChatServiceImpl extends ServiceImpl<ChatMapper, Chat>
     implements ChatService {
+
+    @Resource
+    private XfXhStreamClient xfXhStreamClient;
+
+    @Resource
+    private XfXhConfig xfXhConfig;
+
     @Resource
     private ChatMapper chatMapper;
     @Resource
@@ -86,6 +98,28 @@ public class ChatServiceImpl extends ServiceImpl<ChatMapper, Chat>
         saveCache(CACHE_CHAT_PRIVATE,loginUser.getId() + "to" + chatRequest.getToId(),messageVoList);
         return messageVoList;
     }
+
+    @Override
+    public List<MessageVo> getAiLastChat(User loginUser) {
+        // 从缓存中查询
+        List<MessageVo> messageVos = getCache(CACHE_CHAT_AI, loginUser.getId() + "to" + AI_id);
+        if (messageVos != null && !messageVos.isEmpty()){
+            saveCache(CACHE_CHAT_AI, loginUser.getId() + "to" + AI_id,messageVos);
+            return messageVos;
+        }
+        // 从数据库中查询
+        QueryWrapper<Chat> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("sendUserId", loginUser.getId());
+        queryWrapper.eq("recUserId", AI_id);
+        queryWrapper.or(chatQueryWrapper -> chatQueryWrapper.eq("sendUserId",AI_id).eq("recUserId", loginUser.getId()));
+        List<Chat> recChats = chatMapper.selectList(queryWrapper);
+        // 转换查询结果的格式
+        List<MessageVo> messageVoList = chatListToMessageVoList(recChats, AI_CHAT, loginUser);
+        // 保存结果到缓存中
+        saveCache(CACHE_CHAT_AI, loginUser.getId() + "to" + AI_id,messageVos);
+        return messageVoList;
+    }
+
 
     @Override
     public void deleteKey(String key, String id) {
@@ -137,6 +171,81 @@ public class ChatServiceImpl extends ServiceImpl<ChatMapper, Chat>
         return messageVoList;
     }
 
+    @Override
+    public List<MessageVo> getAiAnswer(ChatRequest chatRequest, User loginUser) {
+
+        // 保存聊天信息到数据库
+        Chat chat = new Chat();
+        chat.setSendUserId(loginUser.getId());
+        chat.setRecUserId(6L);
+        chat.setContent(chatRequest.getText());
+        chat.setSendUserName(loginUser.getUserName());
+        chat.setChatType(4);
+        chat.setIsRead(1);
+        chat.setTeamId(null);
+        this.save(chat);
+        // 获取连接令牌
+        if (!xfXhStreamClient.operateToken(XfXhStreamClient.GET_TOKEN_STATUS)) {
+            throw new BusinessException(Code.SYSTEM_ERROR,"当前大模型连接数过多，请稍后再试");
+//            return ResultUtils.error(Code.SYSTEM_ERROR,"当前大模型连接数过多，请稍后再试");
+        }
+        // 创建消息对象
+        MsgDTO msgDTO = MsgDTO.createUserMsg(chatRequest.getText());
+        // 创建监听器
+        XfXhWebSocketListener listener = new XfXhWebSocketListener();
+        // 发送问题给大模型，生成 websocket 连接
+        WebSocket webSocket = xfXhStreamClient.sendMsg(UUID.randomUUID().toString().substring(0, 10), Collections.singletonList(msgDTO), listener);
+        if (webSocket == null) {
+            // 归还令牌
+            xfXhStreamClient.operateToken(XfXhStreamClient.BACK_TOKEN_STATUS);
+            throw new BusinessException(Code.SYSTEM_ERROR,"系统内部错误，请联系管理员");
+//            return ResultUtils.error(Code.SYSTEM_ERROR,"系统内部错误，请联系管理员") ;
+        }
+        try {
+            int count = 0;
+            // 为了避免死循环，设置循环次数来定义超时时长
+            int maxCount = xfXhConfig.getMaxResponseTime() * 5;
+            while (count <= maxCount) {
+                Thread.sleep(200);
+                if (listener.isWsCloseFlag()) {
+                    break;
+                }
+                count++;
+            }
+            if (count > maxCount) {
+                throw new BusinessException(Code.SYSTEM_ERROR,"大模型响应超时，请联系管理员");
+//                return ResultUtils.error(Code.SYSTEM_ERROR,"大模型响应超时，请联系管理员");
+            }
+            // 保存答案到数据库中
+            Chat chat1 = new Chat();
+            chat1.setSendUserId(6L);
+            chat1.setRecUserId(loginUser.getId());
+            chat1.setContent(listener.getAnswer().toString());
+            chat1.setSendUserName("光点-智能聊天机器人");
+            chat1.setChatType(4);
+            chat1.setIsRead(1);
+            chat1.setTeamId(null);
+            this.save(chat1);
+            // 响应大模型的答案
+            List<Chat> chatList = new LinkedList<>();
+            chatList.add(chat);
+            chatList.add(chat1);
+            redisTemplate.delete(CACHE_CHAT_AI + loginUser.getId() + "to" + AI_id);
+            return this.chatListToMessageVoList(chatList,AI_CHAT,loginUser);
+
+//            return ResultUtils.success(listener.getAnswer().toString());
+        } catch (InterruptedException e) {
+            log.error("错误：" + e.getMessage());
+            throw new BusinessException(Code.SYSTEM_ERROR,"大模型响应超时，请联系管理员");
+        } finally {
+            // 关闭 websocket 连接
+            webSocket.close(1000, "");
+            // 归还令牌
+            xfXhStreamClient.operateToken(XfXhStreamClient.BACK_TOKEN_STATUS);
+        }
+
+    }
+
 
     public List<MessageVo> chatListToMessageVoList(List<Chat> chatList, int chatType, User loginUser){
         return chatList.stream().map(chat -> {
@@ -146,7 +255,7 @@ public class ChatServiceImpl extends ServiceImpl<ChatMapper, Chat>
             BeanUtils.copyProperties(sendUser,sendWebSocket);
             messageVo.setFormUser(sendWebSocket);
             // 如果是私聊，包含接受用户信息，如果是大厅聊天或者队伍聊天，不包含接收方用户信息
-            if (chatType == PRIVATE_CHAT) {
+            if (chatType == PRIVATE_CHAT || chatType == AI_CHAT) {
                 User recUser = userMapper.selectById(chat.getRecUserId());
                 WebSocketVo recWebSocket = new WebSocketVo();
                 BeanUtils.copyProperties(recUser,recWebSocket);

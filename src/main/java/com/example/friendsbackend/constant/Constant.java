@@ -25,6 +25,7 @@ public interface Constant {
 
     /**
      * 距离当前时间的时间范围，毫秒 2629800000L对应一个月
+     * 这里考虑到目前活跃用户数比较少，延长缓存范围为 5 个月
      */
-    Long RECENTTIME = 2629800000L;
+    Long RECENTTIME = 13149000000L;
 }

@@ -2,6 +2,7 @@ package com.example.friendsbackend.utils;
 
 import org.redisson.api.RBloomFilter;
 import org.redisson.api.RedissonClient;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
@@ -10,6 +11,9 @@ import javax.annotation.Resource;
 public class BloomFilterUtil {
     @Resource
     private RedissonClient redissonClient;
+
+    @Resource
+    private RedisTemplate<String, Object> redisTemplate;
 
     /**
      * 创建布隆过滤器
@@ -23,5 +27,10 @@ public class BloomFilterUtil {
         RBloomFilter<T> bloomFilter = redissonClient.getBloomFilter(filterName);
         bloomFilter.tryInit(expectedInsertions,falsePositiveRate);
         return bloomFilter;
+    }
+
+    public <T> void deleteBloomFilter(String filterName) {
+        RBloomFilter<T> bloomFilter = redissonClient.getBloomFilter(filterName);
+        bloomFilter.delete();
     }
 }
