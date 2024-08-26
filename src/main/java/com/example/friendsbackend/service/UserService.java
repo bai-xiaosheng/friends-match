@@ -2,6 +2,7 @@ package com.example.friendsbackend.service;
 
 import com.example.friendsbackend.modal.domain.User;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.example.friendsbackend.modal.request.UpdateTagRequest;
 import com.example.friendsbackend.modal.request.UserQueryRequest;
 import com.example.friendsbackend.modal.request.UserRegister;
 
@@ -132,4 +133,13 @@ public interface UserService extends IService<User> {
      * @return 符合条件的用户
      */
     List<User> searchFriend(UserQueryRequest userQueryRequest, User loginUser);
+
+    /**
+     * 更新标签
+     *
+     * @param tagRequest 用户id 标签列表
+     * @param loginUser 当前登录用户
+     * @return 是否更新成功
+     */
+    int updateTagById(UpdateTagRequest tagRequest, User loginUser);
 }

@@ -24,6 +24,10 @@ public class UserVo {
      * 性别 0-女 1-男
      */
     private Integer gender;
+    /**
+     * 标签 json 列表
+     */
+    private String tags;
 
 
 

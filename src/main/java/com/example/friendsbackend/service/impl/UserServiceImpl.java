@@ -8,6 +8,7 @@ import com.example.friendsbackend.common.Code;
 import com.example.friendsbackend.exception.BusinessException;
 import com.example.friendsbackend.mapper.UserMapper;
 import com.example.friendsbackend.modal.domain.User;
+import com.example.friendsbackend.modal.request.UpdateTagRequest;
 import com.example.friendsbackend.modal.request.UserQueryRequest;
 import com.example.friendsbackend.modal.request.UserRegister;
 import com.example.friendsbackend.service.UserService;
@@ -144,7 +145,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         queryWrapper.eq("userAccount", userAccount);
         long count = userMapper.selectCount(queryWrapper);
         if (count > 0) {
-            throw new BusinessException(Code.PARAMS_ERROR,"当前账户名已注册");
+            throw new BusinessException(Code.PARAMS_ERROR,"当前账户已注册");
         }
         //2.密码加密
         String savePassword = DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
@@ -322,7 +323,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         for (Long userId : topUserIdList) {
             resultList.add(userIdListMap.get(userId).get(0));
         }
-        System.out.println("相似度排序后时间戳："+System.currentTimeMillis());
+//        System.out.println("相似度排序后时间戳："+System.currentTimeMillis());
         return resultList;
 
 
@@ -402,7 +403,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         Set<Object> userIdSet = redisUtil.zsetAllQuery(RECENTUSER, System.currentTimeMillis() - RECENTTIME, System.currentTimeMillis());
         if (userIdSet != null && !userIdSet.isEmpty()){
             queryWrapper.in("id",userIdSet);
-
         }
         queryWrapper.ne("id",id);
         queryWrapper.orderByDesc("vipState");
@@ -557,12 +557,52 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
     @Override
+    public int updateTagById(UpdateTagRequest tagRequest, User loginUser) {
+        long userId = tagRequest.getId();
+        if (userId <= 0){
+            throw new BusinessException(Code.PARAMS_ERROR,"该用户不存在");
+        }
+        Set<String> newTags = tagRequest.getTagList();
+        if (newTags.size() > 12){
+            throw new BusinessException(Code.PARAMS_ERROR,"最多设置12个标签");
+        }
+        if (!isAdmin(loginUser) && userId != loginUser.getId()){
+            throw new BusinessException(Code.NO_AUTH,"没有权限");
+        }
+        User user = userMapper.selectById(userId);
+        Gson gson = new Gson();
+        Set<String> oldTags = gson.fromJson(user.getTags(), new TypeToken<Set<String>>() {
+        }.getType());
+        Set<String> oldTagsCapitalize = toCapitalize(oldTags);
+        Set<String> newTagsCapitalize = toCapitalize(newTags);
+
+        // 添加 newTagsCapitalize 中 oldTagsCapitalize 中不存在的元素
+        oldTagsCapitalize.addAll(newTagsCapitalize.stream().filter(tag -> !oldTagsCapitalize.contains(tag)).collect(Collectors.toSet()));
+        // 移除 oldTagsCapitalize 中 newTagsCapitalize 中不存在的元素
+        oldTagsCapitalize.removeAll(oldTagsCapitalize.stream().filter(tag -> !newTagsCapitalize.contains(tag)).collect(Collectors.toSet()));
+        String tagsJson = gson.toJson(oldTagsCapitalize);
+        user.setTags(tagsJson);
+        return userMapper.updateById(user);
+
+    }
+
+    @Override
     public List<User> matchUsers(long num, User loginUser) {
         String tags = loginUser.getTags();
         Gson gson = new Gson();
         List<String> loginUserTagList = gson.fromJson(tags, new TypeToken<List<String>>() {
         }.getType());
         return this.searchUserByTag(num,loginUserTagList);
+    }
+
+    /**
+     * String类型集合首字母大写
+     *
+     * @param oldSet 原集合
+     * @return 首字母大写的集合
+     */
+    private Set<String> toCapitalize(Set<String> oldSet) {
+        return oldSet.stream().map(StringUtils::capitalize).collect(Collectors.toSet());
     }
 }
 

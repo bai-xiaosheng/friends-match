@@ -8,6 +8,7 @@ import com.example.friendsbackend.common.Code;
 import com.example.friendsbackend.common.ResultUtils;
 import com.example.friendsbackend.exception.BusinessException;
 import com.example.friendsbackend.modal.domain.User;
+import com.example.friendsbackend.modal.request.UpdateTagRequest;
 import com.example.friendsbackend.modal.request.UserLoginRequest;
 import com.example.friendsbackend.modal.request.UserQueryRequest;
 import com.example.friendsbackend.modal.request.UserRegister;
@@ -121,6 +122,17 @@ public class UserController {
         int result = userService.updateUser(user, request);
         return ResultUtils.success(result);
 
+    }
+
+    @PostMapping("/update/tags")
+    public BaseResponse<Integer> updateTagById(@RequestBody UpdateTagRequest tagRequest, HttpServletRequest request) {
+        if (tagRequest == null) {
+            throw new BusinessException(Code.PARAMS_ERROR);
+        }
+        User loginUser = userService.getLoginUser(request);
+        int updateTag = userService.updateTagById(tagRequest, loginUser);
+//        redisTemplate.delete(userService.redisFormat(currentUser.getId()));
+        return ResultUtils.success(updateTag);
     }
     @PostMapping("/delete")
     public BaseResponse<Boolean> deleteUser(long id, HttpServletRequest request) {

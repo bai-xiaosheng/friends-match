@@ -69,6 +69,7 @@ public class RedisUtil {
     public Set<Object> zsetAllQuery(String key,Long minScore, Long maxScore){
         try {
             //            System.out.println(userId);
+//            Set<Object> objects = redisTemplate.opsForZSet().rangeByScore(key, minScore, maxScore);
             return redisTemplate.opsForZSet().rangeByScore(key, minScore, maxScore);
         }catch (Exception e){
             log.error("zsetAllQuery error"+e);
