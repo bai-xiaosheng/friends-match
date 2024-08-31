@@ -162,6 +162,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         user.setLastTime(new Date());
         user.setIsDelete(0);
         user.setUserRole(0);
+        user.setVipState("0");
 
         boolean result = this.save(user);
         if (!result) {
@@ -218,7 +219,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         redisUtil.zsetSet(RECENTUSER,user.getId(),user.getLastTime().getTime());
         //3.用户信息脱敏
         User safeUser = getSafeUser(user);
-
         //4.记录用户登录状态
         request.getSession().setAttribute(USER_LOGIN_STATE, safeUser);
         //返回脱敏后的用户信息
@@ -386,17 +386,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
                 id = loginUser.getId();
             }
         }
-        //根据用户id查询缓存值
-        ValueOperations<String, Object> opsForValue = redisTemplate.opsForValue();
-        String rediasKey = String.format("xiaobai:user:recommend:%s",id);
-//        String rediasKey = String.format("xiaobai:user:%s",loginUser.getId());
-        List<User> userList = (List<User>) opsForValue.get(rediasKey);
-//        //如果有缓存值，直接返回
-        if (userList != null){
-            return userList;
-        }
+        // 这里选择删除这段逻辑，因为设置缓存每天更新一次，当天内其它用户修改信息，缓存内的值不会改变，影响展示效果
+//        //根据用户id查询缓存值
+//        ValueOperations<String, Object> opsForValue = redisTemplate.opsForValue();
+//        String rediasKey = String.format("xiaobai:user:recommend:%s",id);
+////        String rediasKey = String.format("xiaobai:user:%s",loginUser.getId());
+//        List<User> userList = (List<User>) opsForValue.get(rediasKey);
+////        //如果有缓存值，直接返回
+//        if (userList != null){
+//            return userList;
+//        }
 
-        //如果没有缓存值，从最近登录用户表中读取
+        //从缓存中的最近登录用户表中读取
         System.out.println("从最近登录用户表中读取：");
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         // 从缓存中读取最近登录用户的id,2629800000表示一个月对应的毫秒数
@@ -412,32 +413,35 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
         Page<User> userPage = this.page(new Page<>(pageNum, pageSize), queryWrapper);
         // 返回的用户信息要脱敏
-        userList = userPage.getRecords().stream().map(
+        List<User> userList = userPage.getRecords().stream().map(
                 this::getSafeUser).collect(Collectors.toList());
         //写入缓存
-        try {
-            opsForValue.set(rediasKey,userList,10, TimeUnit.MICROSECONDS);
-        } catch (Exception e) {
-            log.error("redias set key error",e);
-        }
+//        try {
+//            opsForValue.set(rediasKey,userList,10, TimeUnit.MICROSECONDS);
+//        } catch (Exception e) {
+//            log.error("redias set key error",e);
+//        }
         return userList;
     }
 
     @Override
-    @Cacheable(cacheNames = "userAccount", key = "#userAccount", unless = "#result==null") //缓存存在，则使用缓存；不存在，则执行方法，并将结果塞入缓存
+//    标记在 Spring Cache 中使用缓存的地方。当方法被调用时，会首先检查缓存是否存在指定的 key（这里是 userAccount）。如果存在，则直接返回缓存中的值，不执行方法。如果不存在，则执行方法并将结果放入缓存中。
+    @Cacheable(cacheNames = "userAccount", key = "#userAccount", unless = "#result==null")  // unless = "#result==null"：如果方法返回结果为 null，则不将该结果缓存。
     public List<User> searchUserByUserAccount(String userAccount) {
         if (!bloomFilter.contains(userAccount)){
             System.out.println("所要查询的数据既不在缓存中，也不在数据库中，为非法key");
             /*
-              设置unless = "#result==null"并在非法访问的时候返回null的目的是不将该次查询返回的null使用
+              设置unless = "#result==null"：如果方法返回结果为 null，则不将该结果缓存。
               RedissonConfig-->RedisCacheManager-->RedisCacheConfiguration-->entryTtl设置的过期时间存入缓存。
 
-              因为那段时间太长了，在那段时间内可能该非法key又添加到bloomFilter，比如之前不存在userAccount为1234567的用户，
-              在那段时间可能刚好userAccount为1234567的用户完成注册，使该key成为合法key。
+              由于布隆过滤器判定该 userAccount 为非法 key，不查询数据库，并返回 null。为了避免频繁查询相同的非法 key，
+              将一个特殊的标记（illegalJson）存入缓存，并设置一个较短的过期时间（300-500秒）
 
+              如果缓存时间太长，在那段时间内可能该非法key又添加到bloomFilter，比如之前不存在userAccount为1234567的用户，
+              在那段时间可能刚好userAccount为1234567的用户完成注册，使该key成为合法key。
               所以我们需要在缓存中添加一个可容忍的短期过期的null或者是其它自定义的值,使得短时间内直接读取缓存中的该值。
 
-              因为Spring Cache本身无法缓存null，因此选择设置为一个其中所有值均为null的JSON，
+              因为Spring Cache本身无法缓存null，因此选择设置为一个其中所有值均为null的字符串，
              */
             String illegalJson = "[\"com.company.springboot.entity.User\",{\"id\":null,\"userName\":\"null\",]";
             // RedissonClient的getBucket(key)方法获取一个RBucket对象实例，通过这个实例可以设置value或设置value和有效期
@@ -459,8 +463,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             throw new BusinessException(Code.PARAM_NULL_ERROR);
         }
         //获取当前用户id，int默认值为0，数据库中不存在id为0的用户
-        Long id = user.getId();
-        if (id == null || id == 0){
+        long id = user.getId();
+        if (id == 0){
             throw new BusinessException(Code.PARAMS_ERROR,"未提供id");
         }
         //判断当前用户权限

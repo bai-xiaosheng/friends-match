@@ -29,15 +29,15 @@ public class preRedisJob {
     //to do用户信息脱敏
     @Resource
     private UserMapper userMapper;
-    @Resource
-    private RedisTemplate<String,Object> redisTemplate;
-    @Resource
-    private UserService userService;
+//    @Resource
+//    private RedisTemplate<String,Object> redisTemplate;
+//    @Resource
+//    private UserService userService;
     @Resource
     private RedissonClient redissonClient;
     @Resource
     private RedisUtil redisUtil;
-    private List<Long> userList = Arrays.asList(1L);
+//    private List<Long> userList = Arrays.asList(1L);
 
 
 //    // 结合分页，按批次从数据库拉取数据出来跑批，例如从数据库获取10万记录，做数据处理
@@ -52,34 +52,34 @@ public class preRedisJob {
 //        }
 //    });
 
-    @Scheduled(cron = "0 0 0 * * *")
-    public void doCacheRecommendUser(){
-        RLock lock = redissonClient.getLock("xiaobai:preRedis:docache:lock");
-        try {
-            if (lock.tryLock(0,-1, TimeUnit.MICROSECONDS)){
-                System.out.println("get lock"+Thread.currentThread().getId());
-                for (Long userid: userList){
-                    QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-                    Page<User> userPage = userMapper.selectPage(new Page<>(1, 10), queryWrapper);
-                    String rediasKey = String.format("xiaobai:user:recommend:%s",userid);
-                    List<User> collect = userPage.getRecords().stream().map(
-                            user -> userService.getSafeUser(user)).collect(Collectors.toList());
-                    try {
-                        redisTemplate.opsForValue().set(rediasKey,collect);
-                    } catch (Exception e) {
-                        log.error("redis set key error",e);
-                    }
-                }
-            }
-        } catch (InterruptedException e) {
-            log.error("doCacheRecommendUser error",e);
-        }finally {
-            if (lock.isHeldByCurrentThread()){
-                System.out.println("unlock" + Thread.currentThread().getId());
-                lock.unlock();
-            }
-        }
-    }
+//    @Scheduled(cron = "0 0 0 * * *")
+//    public void doCacheRecommendUser(){
+//        RLock lock = redissonClient.getLock("xiaobai:preRedis:docache:lock");
+//        try {
+//            if (lock.tryLock(0,-1, TimeUnit.MICROSECONDS)){
+//                System.out.println("get lock"+Thread.currentThread().getId());
+//                for (Long userid: userList){
+//                    QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+//                    Page<User> userPage = userMapper.selectPage(new Page<>(1, 10), queryWrapper);
+//                    String rediasKey = String.format("xiaobai:user:recommend:%s",userid);
+//                    List<User> collect = userPage.getRecords().stream().map(
+//                            user -> userService.getSafeUser(user)).collect(Collectors.toList());
+//                    try {
+//                        redisTemplate.opsForValue().set(rediasKey,collect);
+//                    } catch (Exception e) {
+//                        log.error("redis set key error",e);
+//                    }
+//                }
+//            }
+//        } catch (InterruptedException e) {
+//            log.error("doCacheRecommendUser error",e);
+//        }finally {
+//            if (lock.isHeldByCurrentThread()){
+//                System.out.println("unlock" + Thread.currentThread().getId());
+//                lock.unlock();
+//            }
+//        }
+//    }
 
     /**
      * 每天凌晨4点更新当前用户缓存
@@ -117,7 +117,7 @@ public class preRedisJob {
         }
     }
 
-    @Scheduled(cron = "0 3 3 * * *")
+    @Scheduled(cron = "0 3 5 * * *")
     public void deleteOverdueUser(){
         RLock lock = redissonClient.getLock("xiaobai:user:deleteOverdue:lock");
         try {

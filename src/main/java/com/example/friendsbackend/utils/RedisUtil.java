@@ -24,6 +24,7 @@ public class RedisUtil {
 //        redisTemplate.opsForZSet().add(key,value,score);
         try {
 //            按照score值由小到大进行排列
+
             return redisTemplate.opsForZSet().add(key,value,score);
         }catch (Exception e){
             log.error("zsetSet redis error" + e);

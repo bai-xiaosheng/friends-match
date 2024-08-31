@@ -63,7 +63,7 @@ mybatis-plus:
 #    sql语句打印
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
 #    禁用缓存
-    local-cache-scope: statement
+#    local-cache-scope: statement
 
   # 设置日志打印
   # logging.level.root: 日志级别

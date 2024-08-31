@@ -37,6 +37,25 @@ public class InsertUsers {
             while (true){
                 j++;
                 User user = new User();
+
+                user.setUserAccount("");
+                user.setUserName("");
+                user.setUserUrl("");
+                user.setProfile("");
+                user.setGender(0);
+                user.setUserPassword("");
+                user.setPhone("");
+                user.setFriendsIds("");
+                user.setEmail("");
+                user.setUserStatus(0);
+                user.setCreateTime(new Date());
+                user.setUpdateTime(new Date());
+                user.setLastTime(new Date());
+                user.setIsDelete(0);
+                user.setUserRole(0);
+                user.setVipState("");
+                user.setTags("");
+
                 user.setUserAccount("xiaobai");
                 user.setUserName("xiaobai");
                 user.setUserUrl("https://picx.zhimg.com/80/v2-a67f86b7702594cc75899f23615aef1d_720w.webp?source=1def8aca");
