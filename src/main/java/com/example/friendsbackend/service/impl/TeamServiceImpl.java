@@ -1,4 +1,5 @@
 package com.example.friendsbackend.service.impl;
+import java.util.Date;
 import java.util.*;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -135,9 +136,9 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         if (name == null || name.length() >= 20){
             throw new BusinessException(Code.PARAMS_ERROR,"队伍名称格式错误");
         }
-        //  c. 最大人数要设置，必须大于 1，小于 20.
+        //  c. 最大人数要设置，必须大于 1，小于 50.
         Integer maxNum = teamCreateRequest.getMaxNum();
-        if (maxNum < 1 || maxNum >= 20){
+        if (maxNum < 1 || maxNum >= 50){
             throw new BusinessException(Code.PARAMS_ERROR,"最大人数格式错误");
         }
         //  d. 描述不能超过 512 个字符
@@ -171,6 +172,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         }
         //写入数据，队伍表和用户队伍表都要写入
         Team team = new Team();
+        team.setTeamUrl("https://img.mamecn.com/uploadfile/2019/1109/20191109120105935.jpg");
         team.setName(name);
         team.setDescription(description);
         team.setMaxNum(maxNum);
@@ -305,31 +307,32 @@ public class TeamServiceImpl extends ServiceImpl<TeamMapper, Team>
         if (expireTime.before(new Date())){
             throw new BusinessException(Code.PARAMS_ERROR,"队伍已过期");
         }
-        RLock lock = redissonClient.getLock("xiaobai:join_team");
-
+        //3. 队伍是否还有容量
+        QueryWrapper<UserTeam> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("teamId", teamId);
+        long count = userTeamService.count(queryWrapper);
+        if (count >= team.getMaxNum()) {
+            throw new BusinessException(Code.PARAMS_ERROR, "队伍人数已满");
+        }
+        // 根据队伍id加锁，每个队伍同一时刻只能有一个用户申请加入
+        RLock lock = redissonClient.getLock("xiaobai:join_team：" + teamId);
         try {
             while(true) {
                 if (lock.tryLock(0, -1, TimeUnit.MICROSECONDS)) {
                     System.out.println("getLock: " + Thread.currentThread().getId());
-                    //3. 查询用户加入了多少个队伍
                     long userId = loginUser.getId();
-                    QueryWrapper<UserTeam> queryWrapper = new QueryWrapper<>();
-                    queryWrapper.eq("userId", userId);
-                    long count1 = userTeamService.count(queryWrapper);
-                    if (count1 >= 10) {
-                        throw new BusinessException(Code.NO_AUTH, "加入队伍以达上限");
-                    }
-                    //4. 判断队伍中人数是否达到上限，并且不能加入重复的队伍
-                    queryWrapper = new QueryWrapper<>();
-                    queryWrapper.eq("teamId", teamId);
-                    long count = userTeamService.count(queryWrapper);
-                    if (count >= team.getMaxNum()) {
-                        throw new BusinessException(Code.PARAMS_ERROR, "队伍人数已满");
-                    }
+                    //4. 不能加入重复的队伍
                     for (UserTeam userTeam : userTeamService.list(queryWrapper)) {
                         if (userTeam.getUserId().equals(userId)) {
                             throw new BusinessException(Code.PARAMS_ERROR, "已加入该队伍，请勿重复加入");
                         }
+                    }
+                    //3. 查询用户加入了多少个队伍
+                    queryWrapper = new QueryWrapper<>();
+                    queryWrapper.eq("userId", userId);
+                    long count1 = userTeamService.count(queryWrapper);
+                    if (count1 >= 10) {
+                        throw new BusinessException(Code.NO_AUTH, "加入队伍以达上限");
                     }
                     //5. 加入队伍，将数据写入 userteam 表
                     UserTeam userTeam = new UserTeam();
